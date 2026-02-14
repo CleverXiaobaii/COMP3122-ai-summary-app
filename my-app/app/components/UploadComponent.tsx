@@ -87,8 +87,13 @@ export default function UploadComponent() {
         const next = prev.map(p => ({ ...p }))
         const idx = next.findIndex(f => f.path === file.path)
         if (idx >= 0) {
-          if (response.ok) next[idx].summary = data.summary
-          else next[idx].summary = `❌ 摘要生成失败: ${data.error}`
+          if (response.ok) {
+            next[idx].summary = data.summary
+            next[idx].summarySource = data.source || null
+            next[idx].summaryModel = data.model || null
+          } else {
+            next[idx].summary = `❌ 摘要生成失败: ${data.error}`
+          }
           next[idx].summaryLoading = false
         }
         return next
