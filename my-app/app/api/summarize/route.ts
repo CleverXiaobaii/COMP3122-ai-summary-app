@@ -42,6 +42,30 @@ export async function POST(request: NextRequest) {
       content ||
       `Document: ${fileName}\nFile Type: ${fileType || 'unknown'}\n\nThis document has been uploaded for summarization.`
 
+    // If a fileUrl was provided but no raw text `content`, try fetching the file (with timeout)
+    let fetchedContent: string | null = null
+    if (fileUrl && !content) {
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 10000)
+        const resp = await fetch(fileUrl, { signal: controller.signal })
+        clearTimeout(timeout)
+        if (resp.ok) {
+          const ct = resp.headers.get('content-type') || ''
+          if (ct.includes('text') || ct.includes('json')) {
+            fetchedContent = await resp.text()
+          } else {
+            // not a text resource; leave fetchedContent null
+            console.warn('[Summarize] Fetched file is not text, content-type=', ct)
+          }
+        } else {
+          console.warn('[Summarize] Failed to fetch fileUrl, status=', resp.status)
+        }
+      } catch (err) {
+        console.warn('[Summarize] Error fetching fileUrl:', err instanceof Error ? err.message : String(err))
+      }
+    }
+
     // Try using Deepseek chat completions API if API key is provided; otherwise fallback to local algorithm
     if (process.env.DEEPSEEK_API_KEY) {
       try {
@@ -50,7 +74,7 @@ export async function POST(request: NextRequest) {
           model: 'deepseek-chat',
           messages: [
             { role: 'system', content: 'You are a helpful assistant that summarizes documents.' },
-            { role: 'user', content: `Summarize the following document in 2 short sentences:\n\n${documentContent.substring(0, 3000)}\n\nSummary:` }
+            { role: 'user', content: `Summarize the following document in 2 short sentences:\n\n${(fetchedContent || documentContent).substring(0, 3000)}\n\nSummary:` }
           ],
           stream: false
         }
