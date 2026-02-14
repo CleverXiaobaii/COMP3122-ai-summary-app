@@ -1,28 +1,13 @@
-'use client'
-
-import { useState } from "react";
+import UploadComponent from './components/UploadComponent'
 
 export default function Home() {
-  const [status, setStatus] = useState("Frontend running");
-
-  async function checkBackend() {
-    setStatus("Checking backend...");
-    const res = await fetch('/api/health');
-    const data = await res.json();
-    setStatus(`Backend says: ${data.message}`);
-  }
-
-
   return (
-    <div style={{ fontFamily: "system-ui", padding: 24, maxWidth: 800 }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem', color: '#1d324b' }}>AI Summary App</h1>
-      <button 
-        onClick={checkBackend}
-        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
-      >
-        Check backend
-      </button>
-      <p style={{ marginTop: 12 }}>{status}</p>
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-4xl mx-auto px-4">
+        <h1 className="text-4xl font-bold mb-2 text-gray-900">AI Summary App</h1>
+        <p className="text-gray-600 mb-8">Powered by Supabase</p>
+        <UploadComponent />
+      </div>
     </div>
   );
 }
