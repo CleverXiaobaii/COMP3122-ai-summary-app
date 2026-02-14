@@ -62,9 +62,13 @@ export default function UploadComponent() {
   }
 
   const generateSummary = async (file: UploadedFile, index: number) => {
-    const updatedFiles = [...uploadedFiles]
-    updatedFiles[index].summaryLoading = true
-    setUploadedFiles(updatedFiles)
+    // Update by path to avoid index mismatch if list changed
+    setUploadedFiles(prev => {
+      const next = prev.map(p => ({ ...p }))
+      const idx = next.findIndex(f => f.path === file.path)
+      if (idx >= 0) next[idx].summaryLoading = true
+      return next
+    })
 
     try {
       const response = await fetch('/api/summarize', {
@@ -79,16 +83,26 @@ export default function UploadComponent() {
 
       const data = await response.json()
 
-      if (response.ok) {
-        updatedFiles[index].summary = data.summary
-      } else {
-        updatedFiles[index].summary = `❌ 摘要生成失败: ${data.error}`
-      }
+      setUploadedFiles(prev => {
+        const next = prev.map(p => ({ ...p }))
+        const idx = next.findIndex(f => f.path === file.path)
+        if (idx >= 0) {
+          if (response.ok) next[idx].summary = data.summary
+          else next[idx].summary = `❌ 摘要生成失败: ${data.error}`
+          next[idx].summaryLoading = false
+        }
+        return next
+      })
     } catch (error) {
-      updatedFiles[index].summary = `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
-    } finally {
-      updatedFiles[index].summaryLoading = false
-      setUploadedFiles(updatedFiles)
+      setUploadedFiles(prev => {
+        const next = prev.map(p => ({ ...p }))
+        const idx = next.findIndex(f => f.path === file.path)
+        if (idx >= 0) {
+          next[idx].summary = `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
+          next[idx].summaryLoading = false
+        }
+        return next
+      })
     }
   }
 

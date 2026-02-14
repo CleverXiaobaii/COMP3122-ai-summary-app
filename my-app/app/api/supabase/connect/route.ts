@@ -13,15 +13,35 @@ export async function GET() {
     const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets()
 
     if (bucketsError) {
-      return NextResponse.json(
-        {
-          status: 'error',
-          message: 'Failed to connect to Supabase',
-          envVarsSet: { hasUrl, hasKey },
-          error: bucketsError.message
-        },
-        { status: 500 }
-      )
+      // If listing buckets is not permitted for this key, attempt a direct read on the default bucket
+      try {
+        const { data: filesInDefault, error: listErr } = await supabase.storage.from('default').list('', { limit: 1 })
+        const directAccess = !listErr
+
+        return NextResponse.json(
+          {
+            status: directAccess ? 'success' : 'error',
+            message: directAccess ? 'Connected to Supabase (direct access to default bucket)' : 'Failed to connect to Supabase',
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+            envVarsSet: { hasUrl, hasKey },
+            bucketsCount: directAccess ? 1 : 0,
+            buckets: directAccess ? [{ name: 'default', public: true }] : [],
+            directDefaultAccess: { success: directAccess, fileCount: Array.isArray(filesInDefault) ? filesInDefault.length : null },
+            error: bucketsError.message
+          },
+          directAccess ? { status: 200 } : { status: 500 }
+        )
+      } catch (innerErr) {
+        return NextResponse.json(
+          {
+            status: 'error',
+            message: 'Failed to connect to Supabase',
+            envVarsSet: { hasUrl, hasKey },
+            error: bucketsError.message
+          },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({
