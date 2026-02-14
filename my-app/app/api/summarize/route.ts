@@ -1,7 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { NextRequest, NextResponse } from 'next/server'
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '')
 
 function localExtractiveSummary(text: string, maxSentences = 2) {
   if (!text) return 'No content to summarize.'
@@ -45,52 +42,56 @@ export async function POST(request: NextRequest) {
       content ||
       `Document: ${fileName}\nFile Type: ${fileType || 'unknown'}\n\nThis document has been uploaded for summarization.`
 
-    // Try using Google Generative AI with several candidate models; if all fail, fallback to local algorithm
-    if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      const candidates = [
-        'models/text-bison-001',
-        'models/text-bison-003',
-        'models/gemini-1.5',
-        'models/gemini-1.5-pro',
-        'models/gemini-1.0',
-        'models/gemini-pro',
-        'models/gemini-ultra'
-      ]
+    // Try using Deepseek chat completions API if API key is provided; otherwise fallback to local algorithm
+    if (process.env.DEEPSEEK_API_KEY) {
+      try {
+        const endpoint = 'https://api.deepseek.com/chat/completions'
+        const payload = {
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: 'You are a helpful assistant that summarizes documents.' },
+            { role: 'user', content: `Summarize the following document in 2 short sentences:\n\n${documentContent.substring(0, 3000)}\n\nSummary:` }
+          ],
+          stream: false
+        }
 
-      const prompt = `Summarize the following document in 2 short sentences:\n\n${documentContent.substring(0, 3000)}\n\nSummary:`
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`
+          },
+          body: JSON.stringify(payload),
+          // set a reasonable timeout by using AbortController if desired (omitted for brevity)
+        })
 
-      for (const candidate of candidates) {
-        try {
-          console.log(`[Summarize] Trying model: ${candidate}`)
-          const model = genAI.getGenerativeModel({ model: candidate })
-          const result = await model.generateContent(prompt)
-          const anyRes: any = result
+        if (res.ok) {
+          const data = await res.json()
+          // Attempt to parse common shapes: choices[0].message.content, output_text, text, or similar
           let summary = ''
-          if (!anyRes) {
-            summary = ''
-          } else if (typeof anyRes === 'string') {
-            summary = anyRes
-          } else if (anyRes.response && typeof anyRes.response.text === 'function') {
-            summary = anyRes.response.text()
-          } else if (typeof anyRes.response === 'string') {
-            summary = anyRes.response
-          } else if (anyRes.output_text) {
-            summary = anyRes.output_text
-          } else if (anyRes.output && anyRes.output[0] && anyRes.output[0].content && anyRes.output[0].content[0]) {
-            summary = String(anyRes.output[0].content[0].text || anyRes.output[0].content[0])
-          } else {
-            summary = JSON.stringify(anyRes).slice(0, 2000)
+          try {
+            if (data?.choices && Array.isArray(data.choices) && data.choices[0]) {
+              const c0 = data.choices[0]
+              if (c0.message && c0.message.content) summary = String(c0.message.content)
+              else if (c0.text) summary = String(c0.text)
+            }
+            if (!summary && data?.output_text) summary = String(data.output_text)
+            if (!summary && data?.text) summary = String(data.text)
+            if (!summary && typeof data === 'string') summary = data
+            if (!summary && data) summary = JSON.stringify(data).slice(0, 2000)
+          } catch (parseErr) {
+            summary = JSON.stringify(data).slice(0, 2000)
           }
 
           if (summary && summary.trim()) {
-            return NextResponse.json({ success: true, fileName, summary: summary.trim(), model: candidate, source: 'google' })
+            return NextResponse.json({ success: true, fileName, summary: summary.trim(), model: 'deepseek-chat', source: 'deepseek' })
           }
-        } catch (err) {
-          console.warn(`[Summarize] Model ${candidate} failed:`, err instanceof Error ? err.message : String(err))
-          // try next candidate
+        } else {
+          console.warn('[Summarize] Deepseek API returned non-OK:', res.status, await res.text())
         }
+      } catch (err) {
+        console.warn('[Summarize] Deepseek request failed:', err instanceof Error ? err.message : String(err))
       }
-      console.warn('[Summarize] All remote models failed, falling back to local summarizer')
     }
 
     // Fallback: local extractive summary
