@@ -6,6 +6,8 @@ interface UploadedFile {
   fileName: string
   path: string
   publicUrl: string
+  summary?: string
+  summaryLoading?: boolean
   uploadedAt?: string
 }
 
@@ -56,6 +58,37 @@ export default function UploadComponent() {
       console.error('Failed to load files:', error)
     } finally {
       setLoadingFiles(false)
+    }
+  }
+
+  const generateSummary = async (file: UploadedFile, index: number) => {
+    const updatedFiles = [...uploadedFiles]
+    updatedFiles[index].summaryLoading = true
+    setUploadedFiles(updatedFiles)
+
+    try {
+      const response = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileUrl: file.publicUrl,
+          fileName: file.fileName,
+          fileType: file.fileName.split('.').pop()
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        updatedFiles[index].summary = data.summary
+      } else {
+        updatedFiles[index].summary = `❌ 摘要生成失败: ${data.error}`
+      }
+    } catch (error) {
+      updatedFiles[index].summary = `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
+    } finally {
+      updatedFiles[index].summaryLoading = false
+      setUploadedFiles(updatedFiles)
     }
   }
 
@@ -234,7 +267,7 @@ export default function UploadComponent() {
           </div>
         ) : (
           <div className="space-y-3">
-            {uploadedFiles.map((file) => (
+            {uploadedFiles.map((file, idx) => (
               <div
                 key={file.path}
                 className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition"
@@ -263,12 +296,30 @@ export default function UploadComponent() {
                       查看
                     </a>
                     <button
-                      onClick={() => handleDelete(file.path)}
+                      onClick={() => deleteFile(file.path)}
                       className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition"
                     >
                       删除
                     </button>
                   </div>
+                </div>
+
+                {/* Summary Section */}
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <button
+                    onClick={() => generateSummary(file, idx)}
+                    disabled={file.summaryLoading}
+                    className="w-full px-3 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+                  >
+                    {file.summaryLoading ? '⏳ 生成摘要中...' : file.summary ? '🔄 重新生成摘要' : '✨ 生成 AI 摘要'}
+                  </button>
+
+                  {file.summary && (
+                    <div className="mt-3 p-3 bg-white rounded border border-purple-200">
+                      <p className="text-xs font-semibold text-purple-600 mb-2">📝 AI 摘要：</p>
+                      <p className="text-sm text-gray-700 leading-relaxed italic">{file.summary}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
