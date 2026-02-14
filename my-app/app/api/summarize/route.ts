@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
 
 function localExtractiveSummary(text: string, maxSentences = 2) {
   if (!text) return 'No content to summarize.'
@@ -108,6 +109,18 @@ export async function POST(request: NextRequest) {
           }
 
           if (summary && summary.trim()) {
+            // Attempt to update Postgres record with the generated summary (best-effort)
+            try {
+              await supabase.from('documents').update({
+                summary: summary.trim(),
+                summary_source: 'deepseek',
+                summary_model: 'deepseek-chat',
+                summary_generated_at: new Date().toISOString()
+              }).eq('path', fileName)
+            } catch (uErr) {
+              console.warn('Failed to update document summary in Postgres:', uErr)
+            }
+
             return NextResponse.json({ success: true, fileName, summary: summary.trim(), model: 'deepseek-chat', source: 'deepseek' })
           }
         } else {
@@ -120,6 +133,17 @@ export async function POST(request: NextRequest) {
 
     // Fallback: local extractive summary
     const fallback = localExtractiveSummary(documentContent, 2)
+    try {
+      await supabase.from('documents').update({
+        summary: fallback,
+        summary_source: 'local',
+        summary_model: 'local-extractive',
+        summary_generated_at: new Date().toISOString()
+      }).eq('path', fileName)
+    } catch (uErr) {
+      console.warn('Failed to update document summary in Postgres (local fallback):', uErr)
+    }
+
     return NextResponse.json({ success: true, fileName, summary: fallback, model: 'local-extractive', source: 'local' })
   } catch (error) {
     console.error('[Summarize] Error:', error)

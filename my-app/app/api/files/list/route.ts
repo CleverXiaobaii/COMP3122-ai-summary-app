@@ -32,6 +32,26 @@ export async function GET() {
         uploadedAt: new Date(file.created_at).toLocaleString('zh-CN')
       }
     })
+    // Attempt to fetch any saved summaries from Postgres and merge by path
+    try {
+      const paths = filesWithUrls.map(f => f.path)
+      if (paths.length > 0) {
+        const { data: rows, error: rowsErr } = await supabase.from('documents').select('path,summary,summary_source,summary_model').in('path', paths)
+        if (!rowsErr && rows) {
+          const byPath: Record<string, any> = {}
+          ;(rows || []).forEach(r => { byPath[r.path] = r })
+          filesWithUrls.forEach(f => {
+            if (byPath[f.path]) {
+              f.summary = byPath[f.path].summary || null
+              f.summarySource = byPath[f.path].summary_source || null
+              f.summaryModel = byPath[f.path].summary_model || null
+            }
+          })
+        }
+      }
+    } catch (mergeErr) {
+      console.warn('Failed to merge summaries from Postgres:', mergeErr)
+    }
 
     return NextResponse.json({
       success: true,

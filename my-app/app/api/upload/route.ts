@@ -38,6 +38,19 @@ export async function POST(request: NextRequest) {
     const { data: { publicUrl } } = supabase.storage
       .from(bucketName)
       .getPublicUrl(fileName)
+    // Try to record metadata in Postgres `documents` table (if permitted by RLS)
+    try {
+      await supabase.from('documents').insert({
+        file_name: fileName,
+        path: data?.path,
+        public_url: publicUrl,
+        file_type: file.type || null,
+        size: file.size || null,
+        uploaded_at: new Date().toISOString()
+      })
+    } catch (dbErr) {
+      console.warn('Failed to insert document metadata into Postgres:', dbErr)
+    }
 
     return NextResponse.json({
       success: true,
