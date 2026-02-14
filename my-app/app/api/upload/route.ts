@@ -1,8 +1,10 @@
-import { supabase } from '@/lib/supabase'
+import { supabase, ensureSupabaseEnv } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
+    ensureSupabaseEnv()
+    
     const formData = await request.formData()
     const file = formData.get('file') as File
     const bucketName = (formData.get('bucket') as string) || 'documents'

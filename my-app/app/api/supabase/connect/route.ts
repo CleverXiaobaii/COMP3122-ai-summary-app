@@ -1,8 +1,10 @@
-import { supabase } from '@/lib/supabase'
+import { supabase, ensureSupabaseEnv } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
+    ensureSupabaseEnv()
+    
     // Test connection by fetching user data (will be null if not authenticated)
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     
