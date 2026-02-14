@@ -3,64 +3,71 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '')
 
+function localExtractiveSummary(text: string, maxSentences = 2) {
+  if (!text) return 'No content to summarize.'
+
+  // Split into sentences (simple heuristic)
+  const sentences = text
+    .replace(/\n+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .filter(Boolean)
+
+  if (sentences.length <= maxSentences) return sentences.join(' ')
+
+  // Build word frequency
+  const stopwords = new Set([
+    'the', 'is', 'in', 'and', 'to', 'a', 'of', 'for', 'on', 'with', 'that', 'this', 'it'
+  ])
+  const freq: Record<string, number> = {}
+  const words = text.toLowerCase().match(/\w+/g) || []
+  for (const w of words) {
+    if (stopwords.has(w)) continue
+    freq[w] = (freq[w] || 0) + 1
+  }
+
+  // Score sentences
+  const scored = sentences.map(s => {
+    const sWords = s.toLowerCase().match(/\w+/g) || []
+    const score = sWords.reduce((acc, w) => acc + (freq[w] || 0), 0)
+    return { s, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, maxSentences).map(x => x.s).join(' ')
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { fileUrl, fileName, fileType, content } = await request.json()
 
-    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      return NextResponse.json(
-        {
-          error: 'Google Gemini API key not configured',
-          hint: 'Set GOOGLE_GENERATIVE_AI_API_KEY environment variable'
-        },
-        { status: 400 }
-      )
-    }
-
-    // Create sample content for summarization
+    // prepare document content (in production, fetch and extract file text)
     const documentContent =
       content ||
-      `Document: ${fileName}
-File Type: ${fileType || 'unknown'}
+      `Document: ${fileName}\nFile Type: ${fileType || 'unknown'}\n\nThis document has been uploaded for summarization.`
 
-This document has been uploaded to our system for analysis and summarization.
-Please provide a concise 2-3 sentence summary of the key points.`
+    // Try using Google Generative AI; if it fails, fallback to local algorithm
+    if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      try {
+        const model = genAI.getGenerativeModel({ model: 'models/text-bison-001' })
+        const prompt = `Summarize the following document in 2 short sentences:\n\n${documentContent.substring(0, 3000)}\n\nSummary:`
+        const result = await model.generateContent(prompt)
+        const summary = typeof result?.response?.text === 'function' ? result.response.text() : (result?.response?.content || '')
+        if (summary && summary.trim()) {
+          return NextResponse.json({ success: true, fileName, summary: summary.trim(), model: 'text-bison-001', source: 'google' })
+        }
+      } catch (err) {
+        console.error('[Summarize] Google API failed, falling back to local summarizer:', err)
+      }
+    }
 
-    // Use Gemini Pro model (free tier)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-
-    const prompt = `Please provide a brief 2-3 sentence summary of the following document:
-
-File Name: ${fileName}
-File Type: ${fileType || 'unknown'}
-
-Content:
-${documentContent.substring(0, 2000)}
-
-Summary:`
-
-    const result = await model.generateContent(prompt)
-    const summary = result.response.text()
-
-    return NextResponse.json({
-      success: true,
-      fileName,
-      summary: summary.trim() || 'Unable to generate summary',
-      model: 'gemini-1.5-flash',
-      free: true
-    })
+    // Fallback: local extractive summary
+    const fallback = localExtractiveSummary(documentContent, 2)
+    return NextResponse.json({ success: true, fileName, summary: fallback, model: 'local-extractive', source: 'local' })
   } catch (error) {
-    console.error('Summarization error:', error)
+    console.error('[Summarize] Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-
     return NextResponse.json(
-      {
-        error: 'Failed to generate summary',
-        details: errorMessage,
-        hint: errorMessage.includes('API')
-          ? 'Check if GOOGLE_GENERATIVE_AI_API_KEY is valid'
-          : 'Please try again in a few moments'
-      },
+      { success: false, error: 'Failed to generate summary', details: errorMessage },
       { status: 500 }
     )
   }
