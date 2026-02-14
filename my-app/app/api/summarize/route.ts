@@ -51,7 +51,24 @@ export async function POST(request: NextRequest) {
         const model = genAI.getGenerativeModel({ model: 'models/text-bison-001' })
         const prompt = `Summarize the following document in 2 short sentences:\n\n${documentContent.substring(0, 3000)}\n\nSummary:`
         const result = await model.generateContent(prompt)
-        const summary = typeof result?.response?.text === 'function' ? result.response.text() : (result?.response?.content || '')
+        const anyRes: any = result
+        let summary = ''
+        if (!anyRes) {
+          summary = ''
+        } else if (typeof anyRes === 'string') {
+          summary = anyRes
+        } else if (anyRes.response && typeof anyRes.response.text === 'function') {
+          summary = anyRes.response.text()
+        } else if (typeof anyRes.response === 'string') {
+          summary = anyRes.response
+        } else if (anyRes.output_text) {
+          summary = anyRes.output_text
+        } else if (anyRes.output && anyRes.output[0] && anyRes.output[0].content && anyRes.output[0].content[0]) {
+          summary = String(anyRes.output[0].content[0].text || anyRes.output[0].content[0])
+        } else {
+          summary = JSON.stringify(anyRes).slice(0, 2000)
+        }
+
         if (summary && summary.trim()) {
           return NextResponse.json({ success: true, fileName, summary: summary.trim(), model: 'text-bison-001', source: 'google' })
         }
