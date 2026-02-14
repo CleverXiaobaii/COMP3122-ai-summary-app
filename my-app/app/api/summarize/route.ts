@@ -1,68 +1,56 @@
-import { Anthropic } from '@anthropic-ai/sdk'
+import { HfInference } from '@huggingface/inference'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Initialize Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
-})
+const hf = new HfInference(process.env.HUGGINGFACE_API_KEY)
 
 export async function POST(request: NextRequest) {
   try {
-    const { fileUrl, fileName, fileType } = await request.json()
+    const { fileUrl, fileName, fileType, content } = await request.json()
 
-    if (!fileUrl || !process.env.ANTHROPIC_API_KEY) {
+    if (!process.env.HUGGINGFACE_API_KEY) {
       return NextResponse.json(
         {
-          error: 'Missing required parameters',
-          hint: 'Ensure fileUrl is provided and ANTHROPIC_API_KEY is set'
+          error: 'HuggingFace API key not configured',
+          hint: 'Set HUGGINGFACE_API_KEY environment variable'
         },
         { status: 400 }
       )
     }
 
-    // For now, create a summary based on filename and instructions
-    // In a full implementation, you would:
-    // 1. Fetch the file from fileUrl
-    // 2. Extract text from the file (PDF, DOCX, etc.)
-    // 3. Send the text to Claude for summarization
+    // Create a sample content for demonstration
+    // In a full implementation, you would fetch and parse the file content
+    const sampleContent =
+      content ||
+      `Document: ${fileName}
+Type: ${fileType || 'unknown'}
+This is a sample document content for demonstration purposes.
+The AI will generate a meaningful summary based on the provided text.`
 
-    const prompt = `Please generate a concise summary for the document: "${fileName}"
-    
-Document type: ${fileType || 'unknown'}
-
-Provide a brief 3-5 sentence summary that captures the main points of this document.`
-
-    const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 500,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
+    // Use HuggingFace's free summarization model (facebook/bart-large-cnn)
+    const summary = await hf.summarization({
+      model: 'facebook/bart-large-cnn',
+      inputs: sampleContent.substring(0, 1024) // API has input length limits
     })
-
-    // Extract text content from the response
-    const summary = message.content
-      .filter(block => block.type === 'text')
-      .map(block => ('text' in block ? block.text : ''))
-      .join('')
 
     return NextResponse.json({
       success: true,
       fileName,
-      summary: summary || 'Unable to generate summary',
-      modelUsed: message.model,
-      stopReason: message.stop_reason
+      summary: summary.summary_text || 'Unable to generate summary',
+      model: 'facebook/bart-large-cnn',
+      free: true
     })
   } catch (error) {
     console.error('Summarization error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
     return NextResponse.json(
       {
         error: 'Failed to generate summary',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        hint: 'Check if ANTHROPIC_API_KEY is valid and has sufficient quota'
+        details: errorMessage,
+        hint:
+          errorMessage.includes('401') || errorMessage.includes('Unauthorized')
+            ? 'Check if HUGGINGFACE_API_KEY is valid'
+            : 'The model may be loading. Please try again in a few seconds.'
       },
       { status: 500 }
     )
