@@ -45,36 +45,52 @@ export async function POST(request: NextRequest) {
       content ||
       `Document: ${fileName}\nFile Type: ${fileType || 'unknown'}\n\nThis document has been uploaded for summarization.`
 
-    // Try using Google Generative AI; if it fails, fallback to local algorithm
+    // Try using Google Generative AI with several candidate models; if all fail, fallback to local algorithm
     if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      try {
-        const model = genAI.getGenerativeModel({ model: 'models/text-bison-001' })
-        const prompt = `Summarize the following document in 2 short sentences:\n\n${documentContent.substring(0, 3000)}\n\nSummary:`
-        const result = await model.generateContent(prompt)
-        const anyRes: any = result
-        let summary = ''
-        if (!anyRes) {
-          summary = ''
-        } else if (typeof anyRes === 'string') {
-          summary = anyRes
-        } else if (anyRes.response && typeof anyRes.response.text === 'function') {
-          summary = anyRes.response.text()
-        } else if (typeof anyRes.response === 'string') {
-          summary = anyRes.response
-        } else if (anyRes.output_text) {
-          summary = anyRes.output_text
-        } else if (anyRes.output && anyRes.output[0] && anyRes.output[0].content && anyRes.output[0].content[0]) {
-          summary = String(anyRes.output[0].content[0].text || anyRes.output[0].content[0])
-        } else {
-          summary = JSON.stringify(anyRes).slice(0, 2000)
-        }
+      const candidates = [
+        'models/text-bison-001',
+        'models/text-bison-003',
+        'models/gemini-1.5',
+        'models/gemini-1.5-pro',
+        'models/gemini-1.0',
+        'models/gemini-pro',
+        'models/gemini-ultra'
+      ]
 
-        if (summary && summary.trim()) {
-          return NextResponse.json({ success: true, fileName, summary: summary.trim(), model: 'text-bison-001', source: 'google' })
+      const prompt = `Summarize the following document in 2 short sentences:\n\n${documentContent.substring(0, 3000)}\n\nSummary:`
+
+      for (const candidate of candidates) {
+        try {
+          console.log(`[Summarize] Trying model: ${candidate}`)
+          const model = genAI.getGenerativeModel({ model: candidate })
+          const result = await model.generateContent(prompt)
+          const anyRes: any = result
+          let summary = ''
+          if (!anyRes) {
+            summary = ''
+          } else if (typeof anyRes === 'string') {
+            summary = anyRes
+          } else if (anyRes.response && typeof anyRes.response.text === 'function') {
+            summary = anyRes.response.text()
+          } else if (typeof anyRes.response === 'string') {
+            summary = anyRes.response
+          } else if (anyRes.output_text) {
+            summary = anyRes.output_text
+          } else if (anyRes.output && anyRes.output[0] && anyRes.output[0].content && anyRes.output[0].content[0]) {
+            summary = String(anyRes.output[0].content[0].text || anyRes.output[0].content[0])
+          } else {
+            summary = JSON.stringify(anyRes).slice(0, 2000)
+          }
+
+          if (summary && summary.trim()) {
+            return NextResponse.json({ success: true, fileName, summary: summary.trim(), model: candidate, source: 'google' })
+          }
+        } catch (err) {
+          console.warn(`[Summarize] Model ${candidate} failed:`, err instanceof Error ? err.message : String(err))
+          // try next candidate
         }
-      } catch (err) {
-        console.error('[Summarize] Google API failed, falling back to local summarizer:', err)
       }
+      console.warn('[Summarize] All remote models failed, falling back to local summarizer')
     }
 
     // Fallback: local extractive summary
