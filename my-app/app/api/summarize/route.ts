@@ -1,42 +1,52 @@
-import { HfInference } from '@huggingface/inference'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { NextRequest, NextResponse } from 'next/server'
 
-const hf = new HfInference(process.env.HUGGINGFACE_API_KEY)
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '')
 
 export async function POST(request: NextRequest) {
   try {
     const { fileUrl, fileName, fileType, content } = await request.json()
 
-    if (!process.env.HUGGINGFACE_API_KEY) {
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
       return NextResponse.json(
         {
-          error: 'HuggingFace API key not configured',
-          hint: 'Set HUGGINGFACE_API_KEY environment variable'
+          error: 'Google Gemini API key not configured',
+          hint: 'Set GOOGLE_GENERATIVE_AI_API_KEY environment variable'
         },
         { status: 400 }
       )
     }
 
-    // Create a sample content for demonstration
-    // In a full implementation, you would fetch and parse the file content
-    const sampleContent =
+    // Create sample content for summarization
+    const documentContent =
       content ||
       `Document: ${fileName}
-Type: ${fileType || 'unknown'}
-This is a sample document content for demonstration purposes.
-The AI will generate a meaningful summary based on the provided text.`
+File Type: ${fileType || 'unknown'}
 
-    // Use HuggingFace's free summarization model (facebook/bart-large-cnn)
-    const summary = await hf.summarization({
-      model: 'facebook/bart-large-cnn',
-      inputs: sampleContent.substring(0, 1024) // API has input length limits
-    })
+This document has been uploaded to our system for analysis and summarization.
+Please provide a concise 2-3 sentence summary of the key points.`
+
+    // Use Gemini Pro model (free tier)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+    const prompt = `Please provide a brief 2-3 sentence summary of the following document:
+
+File Name: ${fileName}
+File Type: ${fileType || 'unknown'}
+
+Content:
+${documentContent.substring(0, 2000)}
+
+Summary:`
+
+    const result = await model.generateContent(prompt)
+    const summary = result.response.text()
 
     return NextResponse.json({
       success: true,
       fileName,
-      summary: summary.summary_text || 'Unable to generate summary',
-      model: 'facebook/bart-large-cnn',
+      summary: summary.trim() || 'Unable to generate summary',
+      model: 'gemini-1.5-flash',
       free: true
     })
   } catch (error) {
@@ -47,10 +57,9 @@ The AI will generate a meaningful summary based on the provided text.`
       {
         error: 'Failed to generate summary',
         details: errorMessage,
-        hint:
-          errorMessage.includes('401') || errorMessage.includes('Unauthorized')
-            ? 'Check if HUGGINGFACE_API_KEY is valid'
-            : 'The model may be loading. Please try again in a few seconds.'
+        hint: errorMessage.includes('API')
+          ? 'Check if GOOGLE_GENERATIVE_AI_API_KEY is valid'
+          : 'Please try again in a few moments'
       },
       { status: 500 }
     )
