@@ -296,7 +296,7 @@ export default function UploadComponent() {
                       查看
                     </a>
                     <button
-                      onClick={() => deleteFile(file.path)}
+                      onClick={() => handleDelete(file.path)}
                       className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition"
                     >
                       删除
