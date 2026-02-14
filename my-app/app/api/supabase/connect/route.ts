@@ -44,6 +44,26 @@ export async function GET() {
       }
     }
 
+    // If SDK returned no buckets (permissions may restrict listing), try direct access to the default bucket
+    if (!buckets || buckets.length === 0) {
+      try {
+        const { data: filesInDefault, error: listErr } = await supabase.storage.from('default').list('', { limit: 1 })
+        const directAccess = !listErr
+
+        return NextResponse.json({
+          status: directAccess ? 'success' : 'success',
+          message: directAccess ? 'Connected to Supabase (direct access to default bucket)' : 'Connected to Supabase but no buckets listed',
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          envVarsSet: { hasUrl, hasKey },
+          bucketsCount: directAccess ? 1 : 0,
+          buckets: directAccess ? [{ name: 'default', public: true }] : [],
+          directDefaultAccess: { success: directAccess, fileCount: Array.isArray(filesInDefault) ? filesInDefault.length : null }
+        })
+      } catch (e) {
+        // fallthrough to normal response
+      }
+    }
+
     return NextResponse.json({
       status: 'success',
       message: 'Connected to Supabase successfully',
