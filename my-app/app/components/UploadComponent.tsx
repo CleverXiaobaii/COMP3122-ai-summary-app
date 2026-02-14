@@ -8,6 +8,8 @@ interface UploadedFile {
   publicUrl: string
   summary?: string
   summaryLoading?: boolean
+  summarySource?: string | null
+  summaryModel?: string | null
   uploadedAt?: string
 }
 
