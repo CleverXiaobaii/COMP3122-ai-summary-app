@@ -52,9 +52,21 @@ export async function POST(request: NextRequest) {
         const resp = await fetch(fileUrl, { signal: controller.signal })
         clearTimeout(timeout)
         if (resp.ok) {
-          const ct = resp.headers.get('content-type') || ''
+          const ct = (resp.headers.get('content-type') || '').toLowerCase()
           if (ct.includes('text') || ct.includes('json')) {
             fetchedContent = await resp.text()
+          } else if (ct.includes('pdf') || (fileType || '').toLowerCase() === 'pdf') {
+            // Attempt to extract text from PDF using pdf-parse
+            try {
+              const arrayBuffer = await resp.arrayBuffer()
+              const buffer = Buffer.from(arrayBuffer)
+              // dynamic import to avoid build-time issues
+              const pdfParse = (await import('pdf-parse')).default || (await import('pdf-parse'))
+              const parsed: any = await pdfParse(buffer)
+              fetchedContent = String(parsed?.text || '').trim()
+            } catch (pdfErr) {
+              console.warn('[Summarize] PDF parse failed:', pdfErr)
+            }
           } else {
             // not a text resource; leave fetchedContent null
             console.warn('[Summarize] Fetched file is not text, content-type=', ct)

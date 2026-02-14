@@ -20,7 +20,7 @@ export async function GET() {
     }
 
     // Map files with public URLs
-    const filesWithUrls = (files || []).map(file => {
+    const filesWithUrls: any[] = (files || []).map(file => {
       const { data: { publicUrl } } = supabase.storage
         .from(bucketName)
         .getPublicUrl(file.name)
