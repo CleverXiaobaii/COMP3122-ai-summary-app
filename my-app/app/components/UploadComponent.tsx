@@ -153,7 +153,7 @@ export default function UploadComponent() {
       const response = await fetch('/api/files/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path, bucket: 'documents' })
+        body: JSON.stringify({ path, bucket: 'default' })
       })
 
       if (response.ok) {

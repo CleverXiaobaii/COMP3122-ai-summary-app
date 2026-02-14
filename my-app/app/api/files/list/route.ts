@@ -5,7 +5,7 @@ export async function GET() {
   try {
     ensureSupabaseEnv()
 
-    const bucketName = 'documents'
+    const bucketName = 'default'
 
     // List all files in the bucket
     const { data: files, error } = await supabase.storage

@@ -6,7 +6,7 @@ export async function DELETE(request: NextRequest) {
     ensureSupabaseEnv()
 
     const { path, bucket } = await request.json()
-    const bucketName = bucket || 'documents'
+    const bucketName = bucket || 'default'
 
     if (!path) {
       return NextResponse.json(
