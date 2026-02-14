@@ -74,7 +74,7 @@ export default function UploadComponent() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('bucket', 'documents')
+      formData.append('bucket', 'default')
 
       const response = await fetch('/api/upload', {
         method: 'POST',
