@@ -5,22 +5,20 @@ export async function GET() {
   try {
     ensureSupabaseEnv()
     
-    // Test connection by fetching user data (will be null if not authenticated)
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    // Test 1: Check if environment variables are properly set
+    const hasUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL
+    const hasKey = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     
-    // Test database connectivity with a simple query
-    const { data: tables, error: tableError } = await supabase
-      .from('information_schema.tables')
-      .select('*')
-      .limit(1)
+    // Test 2: Try to list storage buckets (validates connection)
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets()
 
-    if (userError || tableError) {
+    if (bucketsError) {
       return NextResponse.json(
         {
           status: 'error',
           message: 'Failed to connect to Supabase',
-          userError: userError?.message,
-          tableError: tableError?.message
+          envVarsSet: { hasUrl, hasKey },
+          error: bucketsError.message
         },
         { status: 500 }
       )
@@ -28,9 +26,11 @@ export async function GET() {
 
     return NextResponse.json({
       status: 'success',
-      message: 'Connected to Supabase',
+      message: 'Connected to Supabase successfully',
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      isAuthenticated: !!user
+      envVarsSet: { hasUrl, hasKey },
+      bucketsCount: buckets?.length || 0,
+      buckets: buckets?.map(b => ({ name: b.name, public: b.public })) || []
     })
   } catch (error) {
     return NextResponse.json(
