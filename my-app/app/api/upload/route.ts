@@ -16,33 +16,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if bucket exists (don't try to create with public anon key)
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets()
-    
-    if (listError) {
-      return NextResponse.json(
-        { 
-          error: `Failed to list buckets: ${listError.message}`,
-          hint: 'Please initialize storage by visiting /api/storage/init'
-        },
-        { status: 500 }
-      )
-    }
-
-    const bucketExists = buckets?.some(b => b.name === bucketName)
-    
-    if (!bucketExists) {
-      return NextResponse.json(
-        { 
-          error: `Bucket "${bucketName}" not found`,
-          hint: 'Please initialize storage by visiting /api/storage/init',
-          availableBuckets: buckets?.map(b => b.name) || []
-        },
-        { status: 400 }
-      )
-    }
-
-    // Upload file
+    // Upload file directly to the bucket
     const fileName = `${Date.now()}-${file.name}`
     const { data, error } = await supabase.storage
       .from(bucketName)
@@ -52,7 +26,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           error: `Upload failed: ${error.message}`,
-          hint: error.message.includes('CORS') ? 'CORS issue detected' : 'Check bucket permissions'
+          bucket: bucketName,
+          hint: 'Check Supabase > Storage > Policies for RLS configuration',
+          diagnostic: 'Visit /api/storage/diagnose for more details'
         },
         { status: 500 }
       )
