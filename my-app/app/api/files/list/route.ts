@@ -7,6 +7,27 @@ export async function GET() {
 
     const bucketName = 'default'
 
+    // Fetch documents from the database (including soft-deleted ones)
+    const { data: dbDocs, error: dbErr } = await supabase
+      .from('documents')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (dbErr) {
+      console.warn('Failed to fetch documents from database:', dbErr)
+      // Continue with storage list as fallback
+    }
+
+    // Create a map of database documents by path
+    const dbDocsByPath: Record<string, any> = {}
+    if (dbDocs) {
+      dbDocs.forEach(doc => {
+        if (doc.path) {
+          dbDocsByPath[doc.path] = doc
+        }
+      })
+    }
+
     // List all files in the bucket
     const { data: files, error } = await supabase.storage
       .from(bucketName)
@@ -19,39 +40,32 @@ export async function GET() {
       )
     }
 
-    // Map files with public URLs
+    // Map files with public URLs and database metadata
     const filesWithUrls: any[] = (files || []).map(file => {
       const { data: { publicUrl } } = supabase.storage
         .from(bucketName)
         .getPublicUrl(file.name)
 
+      // Get database info for this file
+      const dbInfo = dbDocsByPath[file.name]
+
       return {
+        id: dbInfo?.id,
         fileName: file.name,
         path: file.name,
         publicUrl,
-        uploadedAt: new Date(file.created_at).toLocaleString('zh-CN')
+        fileType: dbInfo?.file_type || file.mimetype || 'unknown',
+        size: dbInfo?.size || file.metadata?.size,
+        uploadedAt: new Date(file.created_at).toLocaleString('zh-CN'),
+        createdAt: dbInfo?.created_at || file.created_at,
+        isDeleted: dbInfo?.is_deleted || false,
+        deletedAt: dbInfo?.deleted_at || null,
+        summary: dbInfo?.summary || null,
+        summarySource: dbInfo?.summary_source || null,
+        summaryModel: dbInfo?.summary_model || null,
+        summaryGeneratedAt: dbInfo?.summary_generated_at || null
       }
     })
-    // Attempt to fetch any saved summaries from Postgres and merge by path
-    try {
-      const paths = filesWithUrls.map(f => f.path)
-      if (paths.length > 0) {
-        const { data: rows, error: rowsErr } = await supabase.from('documents').select('path,summary,summary_source,summary_model').in('path', paths)
-        if (!rowsErr && rows) {
-          const byPath: Record<string, any> = {}
-          ;(rows || []).forEach(r => { byPath[r.path] = r })
-          filesWithUrls.forEach(f => {
-            if (byPath[f.path]) {
-              f.summary = byPath[f.path].summary || null
-              f.summarySource = byPath[f.path].summary_source || null
-              f.summaryModel = byPath[f.path].summary_model || null
-            }
-          })
-        }
-      }
-    } catch (mergeErr) {
-      console.warn('Failed to merge summaries from Postgres:', mergeErr)
-    }
 
     return NextResponse.json({
       success: true,

@@ -38,16 +38,32 @@ export async function POST(request: NextRequest) {
     const { data: { publicUrl } } = supabase.storage
       .from(bucketName)
       .getPublicUrl(fileName)
-    // Try to record metadata in Postgres `documents` table (if permitted by RLS)
+    
+    // Record metadata in Postgres `documents` table
+    let documentId: string | null = null
     try {
-      await supabase.from('documents').insert({
-        file_name: fileName,
-        path: data?.path,
-        public_url: publicUrl,
-        file_type: file.type || null,
-        size: file.size || null,
-        uploaded_at: new Date().toISOString()
-      })
+      const now = new Date().toISOString()
+      const { data: insertedData, error: dbErr } = await supabase
+        .from('documents')
+        .insert({
+          file_name: fileName,
+          path: data?.path,
+          public_url: publicUrl,
+          file_type: file.type || null,
+          size: file.size || null,
+          uploaded_at: now,
+          created_at: now,
+          is_deleted: false
+        })
+        .select('id')
+        .single()
+      
+      if (!dbErr && insertedData) {
+        documentId = insertedData.id
+        console.log(`Document stored in DB with ID: ${documentId}`)
+      } else {
+        console.warn('Failed to insert document metadata into Postgres:', dbErr)
+      }
     } catch (dbErr) {
       console.warn('Failed to insert document metadata into Postgres:', dbErr)
     }
@@ -56,7 +72,9 @@ export async function POST(request: NextRequest) {
       success: true,
       fileName,
       path: data?.path,
-      publicUrl
+      publicUrl,
+      fileSize: file.size,
+      documentId
     })
   } catch (error) {
     return NextResponse.json(

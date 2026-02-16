@@ -15,7 +15,22 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Delete file from storage
+    // Soft delete: Mark as deleted in database
+    try {
+      const now = new Date().toISOString()
+      await supabase
+        .from('documents')
+        .update({
+          is_deleted: true,
+          deleted_at: now
+        })
+        .eq('path', path)
+    } catch (dbErr) {
+      console.warn('Failed to soft delete in documents table:', dbErr)
+      // Continue with storage deletion even if DB update fails
+    }
+
+    // Also delete file from storage (hard delete)
     const { error } = await supabase.storage
       .from(bucketName)
       .remove([path])

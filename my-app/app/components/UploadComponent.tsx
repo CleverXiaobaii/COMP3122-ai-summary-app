@@ -3,14 +3,21 @@
 import { useEffect, useState } from 'react'
 
 interface UploadedFile {
+  id?: string
   fileName: string
   path: string
   publicUrl: string
+  fileType?: string | null
+  size?: number | null
+  uploadedAt?: string
+  createdAt?: string
+  isDeleted?: boolean
+  deletedAt?: string | null
   summary?: string
   summaryLoading?: boolean
   summarySource?: string | null
   summaryModel?: string | null
-  uploadedAt?: string
+  summaryGeneratedAt?: string | null
 }
 
 export default function UploadComponent() {
@@ -178,9 +185,14 @@ export default function UploadComponent() {
       })
 
       if (response.ok) {
+        // Update local state to mark as deleted
+        setUploadedFiles(uploadedFiles.map(f => 
+          f.path === path 
+            ? { ...f, isDeleted: true, deletedAt: new Date().toISOString() }
+            : f
+        ))
         setMessage('✅ 文件已删除')
         setMessageType('success')
-        setUploadedFiles(uploadedFiles.filter(f => f.path !== path))
       } else {
         const data = await response.json()
         setMessage(`❌ 删除失败: ${data.error}`)
@@ -291,57 +303,72 @@ export default function UploadComponent() {
             {uploadedFiles.map((file, idx) => (
               <div
                 key={file.path}
-                className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition"
+                className={`p-4 bg-gray-50 rounded-lg border transition ${
+                  file.isDeleted
+                    ? 'border-red-200 opacity-60'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">
                       📄 {file.fileName}
+                      {file.isDeleted && ' [已删除]'}
                     </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      路径: {file.path}
-                    </p>
-                    {file.uploadedAt && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        上传时间: {file.uploadedAt}
-                      </p>
-                    )}
+                    <div className="grid grid-cols-2 gap-2 mt-2 text-xs text-gray-600">
+                      <p>文件类型: {file.fileType || '未知'}</p>
+                      <p>文件大小: {file.size ? `${(file.size / 1024).toFixed(2)} KB` : '未知'}</p>
+                      <p>上传时间: {file.createdAt ? new Date(file.createdAt).toLocaleString('zh-CN') : '未知'}</p>
+                      {file.deletedAt && (
+                        <p className="text-red-600">删除时间: {new Date(file.deletedAt).toLocaleString('zh-CN')}</p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <a
-                      href={file.publicUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-                    >
-                      查看
-                    </a>
-                    <button
-                      onClick={() => handleDelete(file.path)}
-                      className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition"
-                    >
-                      删除
-                    </button>
+                    {!file.isDeleted && (
+                      <>
+                        <a
+                          href={file.publicUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                        >
+                          查看
+                        </a>
+                        <button
+                          onClick={() => handleDelete(file.path)}
+                          className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition"
+                        >
+                          删除
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Summary Section */}
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <button
-                    onClick={() => generateSummary(file, idx)}
-                    disabled={file.summaryLoading}
-                    className="w-full px-3 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-                  >
-                    {file.summaryLoading ? '⏳ 生成摘要中...' : file.summary ? '🔄 重新生成摘要' : '✨ 生成 AI 摘要'}
-                  </button>
+                {!file.isDeleted && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <button
+                      onClick={() => generateSummary(file, idx)}
+                      disabled={file.summaryLoading}
+                      className="w-full px-3 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+                    >
+                      {file.summaryLoading ? '⏳ 生成摘要中...' : file.summary ? '🔄 重新生成摘要' : '✨ 生成 AI 摘要'}
+                    </button>
 
-                  {file.summary && (
-                    <div className="mt-3 p-3 bg-white rounded border border-purple-200">
-                      <p className="text-xs font-semibold text-purple-600 mb-2">📝 AI 摘要：</p>
-                      <p className="text-sm text-gray-700 leading-relaxed italic">{file.summary}</p>
-                    </div>
-                  )}
-                </div>
+                    {file.summary && (
+                      <div className="mt-3 p-3 bg-white rounded border border-purple-200">
+                        <p className="text-xs font-semibold text-purple-600 mb-2">
+                          📝 AI 摘要
+                          {file.summaryModel && ` (${file.summaryModel})`}
+                          {file.summaryGeneratedAt && ` - ${new Date(file.summaryGeneratedAt).toLocaleString('zh-CN')}`}
+                        </p>
+                        <p className="text-sm text-gray-700 leading-relaxed italic">{file.summary}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
