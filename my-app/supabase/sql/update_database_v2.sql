@@ -25,10 +25,16 @@ insert into public.users (email, password_hash, username, display_name, role)
 values ('admin@example.com', crypt('admin123', gen_salt('bf')), 'admin', 'Administrator', 'admin')
 on conflict (email) do nothing;
 
--- Insert default guest user
-insert into public.users (email, password_hash, username, display_name, role)
-values ('guest@example.com', crypt('guest123', gen_salt('bf')), 'guest', 'Guest User', 'guest')
-on conflict (email) do nothing;
+-- Insert default guest user with fixed UUID
+insert into public.users (id, email, password_hash, username, display_name, role)
+values ('a14ef943-e5d3-4a17-b4cb-293181ec1d7e', 'guest@example.com', crypt('guest123', gen_salt('bf')), 'guest', 'Guest User', 'guest')
+on conflict (id) do update set 
+  email = EXCLUDED.email,
+  password_hash = EXCLUDED.password_hash,
+  username = EXCLUDED.username,
+  display_name = EXCLUDED.display_name,
+  role = EXCLUDED.role,
+  is_active = EXCLUDED.is_active;
 
 -- 2. Create logs table
 create table if not exists public.logs (

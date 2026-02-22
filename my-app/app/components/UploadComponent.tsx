@@ -59,7 +59,7 @@ export default function UploadComponent() {
     }
   }
 
-    const loadUploadedFiles = async () => {
+        const loadUploadedFiles = async () => {
     if (!user) return
     
     setLoadingFiles(true)
@@ -70,9 +70,9 @@ export default function UploadComponent() {
         // Filter files based on user role
         let files = data.files || []
         
-        if (user.role === 'guest') {
-          // Guests can only see files in default bucket (userId is null)
-          files = files.filter((file: UploadedFile) => !file.userId)
+                if (user.role === 'guest') {
+          // Guests can only see files belonging to the guest user
+          files = files.filter((file: UploadedFile) => file.userId === user.id)
         } else if (user.role === 'user') {
           // Regular users can only see their own files
           files = files.filter((file: UploadedFile) => file.userId === user.id)

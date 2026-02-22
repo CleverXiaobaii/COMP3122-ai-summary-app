@@ -25,7 +25,7 @@ export default function LoginPage() {
       if (mode === 'guest') {
         // Guest login - no credentials needed
         const guestUser = {
-          id: null,
+          id: 'a14ef943-e5d3-4a17-b4cb-293181ec1d7e',
           username: 'guest',
           email: 'guest@example.com',
           role: 'guest',
