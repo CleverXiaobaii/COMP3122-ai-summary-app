@@ -5,7 +5,7 @@ export async function DELETE(request: NextRequest) {
   try {
     ensureSupabaseEnv()
 
-    const { path, bucket } = await request.json()
+    const { path, bucket, fileId } = await request.json()
     const bucketName = bucket || 'default'
 
     if (!path) {
@@ -15,16 +15,34 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // If fileId is provided, use it for more accurate deletion
+    const deleteCondition = fileId ? { id: fileId } : { path }
+
     // Soft delete: Mark as deleted in database
     try {
       const now = new Date().toISOString()
-      await supabase
+      const { data: deletedDoc } = await supabase
         .from('documents')
         .update({
           is_deleted: true,
           deleted_at: now
         })
-        .eq('path', path)
+        .match(deleteCondition)
+        .select('user_id')
+        .single()
+      
+      // Log the deletion action
+      if (deletedDoc?.user_id) {
+        await fetch(`${request.nextUrl.origin}/api/auth/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: deletedDoc.user_id,
+            actionType: 'file_delete',
+            details: { path, bucketName }
+          })
+        }).catch(err => console.warn('Failed to log delete action:', err))
+      }
     } catch (dbErr) {
       console.warn('Failed to soft delete in documents table:', dbErr)
       // Continue with storage deletion even if DB update fails

@@ -8,12 +8,31 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File
     const bucketName = (formData.get('bucket') as string) || 'default'
+    const userId = formData.get('userId') as string || null
 
     if (!file) {
       return NextResponse.json(
         { error: 'No file provided' },
         { status: 400 }
       )
+    }
+
+    // For user buckets, ensure the bucket exists
+    if (bucketName.startsWith('user-') && bucketName !== 'default') {
+      try {
+        // Try to create bucket if it doesn't exist
+        const { error: bucketError } = await supabase.storage.createBucket(bucketName, {
+          public: false,
+          allowedMimeTypes: ['image/*', 'application/pdf', 'text/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+          fileSizeLimit: 50 * 1024 * 1024 // 50MB
+        })
+        
+        if (bucketError && !bucketError.message.includes('already exists')) {
+          console.warn('Failed to create user bucket:', bucketError)
+        }
+      } catch (bucketErr) {
+        console.warn('Bucket creation error (may already exist):', bucketErr)
+      }
     }
 
     // Upload file directly to the bucket
@@ -53,14 +72,29 @@ export async function POST(request: NextRequest) {
           size: file.size || null,
           uploaded_at: now,
           created_at: now,
-          is_deleted: false
+          is_deleted: false,
+          user_id: userId,
+          bucket_name: bucketName
         })
         .select('id')
         .single()
       
       if (!dbErr && insertedData) {
         documentId = insertedData.id
-        console.log(`Document stored in DB with ID: ${documentId}`)
+        console.log(`Document stored in DB with ID: ${documentId} for user: ${userId}`)
+        
+        // Log the file upload action
+        if (userId) {
+          await fetch(`${request.nextUrl.origin}/api/auth/log`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              actionType: 'file_upload',
+              details: { fileName, fileSize: file.size, bucketName }
+            })
+          }).catch(err => console.warn('Failed to log upload action:', err))
+        }
       } else {
         console.warn('Failed to insert document metadata into Postgres:', dbErr)
       }
@@ -74,7 +108,8 @@ export async function POST(request: NextRequest) {
       path: data?.path,
       publicUrl,
       fileSize: file.size,
-      documentId
+      documentId,
+      bucketName
     })
   } catch (error) {
     return NextResponse.json(

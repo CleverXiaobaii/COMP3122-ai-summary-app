@@ -49,7 +49,7 @@ export async function GET() {
       // Get database info for this file
       const dbInfo = dbDocsByPath[file.name]
 
-      return {
+            return {
         id: dbInfo?.id,
         fileName: file.name,
         path: file.name,
@@ -63,7 +63,9 @@ export async function GET() {
         summary: dbInfo?.summary || null,
         summarySource: dbInfo?.summary_source || null,
         summaryModel: dbInfo?.summary_model || null,
-        summaryGeneratedAt: dbInfo?.summary_generated_at || null
+        summaryGeneratedAt: dbInfo?.summary_generated_at || null,
+        userId: dbInfo?.user_id || null,
+        bucketName: dbInfo?.bucket_name || 'default'
       }
     })
 

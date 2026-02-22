@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth'
 
 interface UploadedFile {
   id?: string
@@ -18,9 +19,12 @@ interface UploadedFile {
   summarySource?: string | null
   summaryModel?: string | null
   summaryGeneratedAt?: string | null
+  userId?: string | null
+  bucketName?: string
 }
 
 export default function UploadComponent() {
+  const { user } = useAuth()
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -29,11 +33,11 @@ export default function UploadComponent() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
 
-  // Test connection on mount
+    // Test connection on mount
   useEffect(() => {
     testConnection()
     loadUploadedFiles()
-  }, [])
+  }, [user])
 
   const testConnection = async () => {
     try {
@@ -55,13 +59,27 @@ export default function UploadComponent() {
     }
   }
 
-  const loadUploadedFiles = async () => {
+    const loadUploadedFiles = async () => {
+    if (!user) return
+    
     setLoadingFiles(true)
     try {
       const response = await fetch('/api/files/list')
       if (response.ok) {
         const data = await response.json()
-        setUploadedFiles(data.files || [])
+        // Filter files based on user role
+        let files = data.files || []
+        
+        if (user.role === 'guest') {
+          // Guests can only see files in default bucket (userId is null)
+          files = files.filter((file: UploadedFile) => !file.userId)
+        } else if (user.role === 'user') {
+          // Regular users can only see their own files
+          files = files.filter((file: UploadedFile) => file.userId === user.id)
+        }
+        // Admins can see all files (no filter)
+        
+        setUploadedFiles(files)
       }
     } catch (error) {
       console.error('Failed to load files:', error)
@@ -120,9 +138,9 @@ export default function UploadComponent() {
     }
   }
 
-  const handleUpload = async (e: React.FormEvent) => {
+    const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file) {
+    if (!file || !user) {
       setMessage('Please select a file')
       setMessageType('error')
       return
@@ -135,7 +153,14 @@ export default function UploadComponent() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('bucket', 'default')
+      
+      // Determine bucket based on user role
+      let bucket = 'default'
+      if (user.role === 'user') {
+        bucket = `user-${user.id}`
+      }
+      formData.append('bucket', bucket)
+      formData.append('userId', user.id || '')
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -152,7 +177,9 @@ export default function UploadComponent() {
             fileName: data.fileName,
             path: data.path,
             publicUrl: data.publicUrl,
-            uploadedAt: new Date().toLocaleString('en-US')
+            uploadedAt: new Date().toLocaleString('en-US'),
+            userId: user.id,
+            bucketName: bucket
           },
           ...uploadedFiles
         ])
@@ -174,20 +201,24 @@ export default function UploadComponent() {
     }
   }
 
-  const handleDelete = async (path: string) => {
-    if (!confirm('Are you sure you want to delete this file?')) return
+    const handleDelete = async (file: UploadedFile) => {
+    if (!confirm('Are you sure you want to delete this file?') || !user) return
 
     try {
       const response = await fetch('/api/files/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path, bucket: 'default' })
+        body: JSON.stringify({ 
+          path: file.path, 
+          bucket: file.bucketName || 'default',
+          fileId: file.id
+        })
       })
 
       if (response.ok) {
         // Update local state to mark as deleted
         setUploadedFiles(uploadedFiles.map(f => 
-          f.path === path 
+          f.path === file.path 
             ? { ...f, isDeleted: true, deletedAt: new Date().toISOString() }
             : f
         ))
@@ -211,8 +242,13 @@ export default function UploadComponent() {
       <h2 className="text-3xl font-bold mb-2 text-gray-900">
         📁 File Management System
       </h2>
-      <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-6">
         Secure file storage solution powered by Supabase
+        {user && (
+          <span className="ml-2 px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+            {user.role.toUpperCase()} MODE
+          </span>
+        )}
       </p>
 
       {/* Connection Status */}
@@ -315,10 +351,13 @@ export default function UploadComponent() {
                       📄 {file.fileName}
                       {file.isDeleted && ' [Deleted]'}
                     </p>
-                    <div className="grid grid-cols-2 gap-2 mt-2 text-xs text-gray-600">
+                                        <div className="grid grid-cols-2 gap-2 mt-2 text-xs text-gray-600">
                       <p>File Type: {file.fileType || 'Unknown'}</p>
                       <p>File Size: {file.size ? `${(file.size / 1024).toFixed(2)} KB` : 'Unknown'}</p>
                       <p>Uploaded: {file.createdAt ? new Date(file.createdAt).toLocaleString('en-US') : 'Unknown'}</p>
+                      {file.bucketName && (
+                        <p>Bucket: {file.bucketName}</p>
+                      )}
                       {file.deletedAt && (
                         <p className="text-red-600">Deleted: {new Date(file.deletedAt).toLocaleString('en-US')}</p>
                       )}
@@ -335,8 +374,8 @@ export default function UploadComponent() {
                         >
                           View
                         </a>
-                        <button
-                          onClick={() => handleDelete(file.path)}
+                                                <button
+                          onClick={() => handleDelete(file)}
                           className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition"
                         >
                           Delete
