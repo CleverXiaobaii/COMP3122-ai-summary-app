@@ -37,20 +37,20 @@ export default function UploadComponent() {
 
   const testConnection = async () => {
     try {
-      setConnectionStatus('🔄 测试连接中...')
+      setConnectionStatus('🔄 Testing connection...')
       const response = await fetch('/api/supabase/connect')
       const data = await response.json()
       
       if (data.status === 'success') {
         setConnectionStatus(
-          `✅ Supabase 已连接 | ${data.bucketsCount} 个存储桶`
+          `✅ Supabase connected | ${data.bucketsCount} storage buckets`
         )
       } else {
-        setConnectionStatus(`❌ 连接失败: ${data.message}`)
+        setConnectionStatus(`❌ Connection failed: ${data.message}`)
       }
     } catch (error) {
       setConnectionStatus(
-        `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
+        `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
     }
   }
@@ -101,7 +101,7 @@ export default function UploadComponent() {
             next[idx].summarySource = data.source || null
             next[idx].summaryModel = data.model || null
           } else {
-            next[idx].summary = `❌ 摘要生成失败: ${data.error}`
+            next[idx].summary = `❌ Summary generation failed: ${data.error}`
           }
           next[idx].summaryLoading = false
         }
@@ -112,7 +112,7 @@ export default function UploadComponent() {
         const next = prev.map(p => ({ ...p }))
         const idx = next.findIndex(f => f.path === file.path)
         if (idx >= 0) {
-          next[idx].summary = `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
+          next[idx].summary = `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
           next[idx].summaryLoading = false
         }
         return next
@@ -123,7 +123,7 @@ export default function UploadComponent() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file) {
-      setMessage('请选择一个文件')
+      setMessage('Please select a file')
       setMessageType('error')
       return
     }
@@ -145,14 +145,14 @@ export default function UploadComponent() {
       const data = await response.json()
 
       if (response.ok) {
-        setMessage(`✅ 上传成功: ${data.fileName}`)
+        setMessage(`✅ Upload successful: ${data.fileName}`)
         setMessageType('success')
         setUploadedFiles([
           {
             fileName: data.fileName,
             path: data.path,
             publicUrl: data.publicUrl,
-            uploadedAt: new Date().toLocaleString('zh-CN')
+            uploadedAt: new Date().toLocaleString('en-US')
           },
           ...uploadedFiles
         ])
@@ -161,12 +161,12 @@ export default function UploadComponent() {
         const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
         if (fileInput) fileInput.value = ''
       } else {
-        setMessage(`❌ 上传失败: ${data.error}`)
+        setMessage(`❌ Upload failed: ${data.error}`)
         setMessageType('error')
       }
     } catch (error) {
       setMessage(
-        `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
+        `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
       setMessageType('error')
     } finally {
@@ -175,7 +175,7 @@ export default function UploadComponent() {
   }
 
   const handleDelete = async (path: string) => {
-    if (!confirm('确定要删除这个文件吗?')) return
+    if (!confirm('Are you sure you want to delete this file?')) return
 
     try {
       const response = await fetch('/api/files/delete', {
@@ -191,16 +191,16 @@ export default function UploadComponent() {
             ? { ...f, isDeleted: true, deletedAt: new Date().toISOString() }
             : f
         ))
-        setMessage('✅ 文件已删除')
+        setMessage('✅ File deleted successfully')
         setMessageType('success')
       } else {
         const data = await response.json()
-        setMessage(`❌ 删除失败: ${data.error}`)
+        setMessage(`❌ Delete failed: ${data.error}`)
         setMessageType('error')
       }
     } catch (error) {
       setMessage(
-        `❌ 错误: ${error instanceof Error ? error.message : '未知错误'}`
+        `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
       setMessageType('error')
     }
@@ -209,37 +209,37 @@ export default function UploadComponent() {
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-3xl font-bold mb-2 text-gray-900">
-        📁 文件管理系统
+        📁 File Management System
       </h2>
       <p className="text-gray-600 mb-6">
-        由 Supabase 提供支持的安全文件存储解决方案
+        Secure file storage solution powered by Supabase
       </p>
 
       {/* Connection Status */}
       <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-gray-700">连接状态</p>
+            <p className="text-sm font-semibold text-gray-700">Connection Status</p>
             <p className="text-lg font-bold text-blue-600 mt-1">
-              {connectionStatus || '检查中...'}
+              {connectionStatus || 'Checking...'}
             </p>
           </div>
           <button
             onClick={testConnection}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
           >
-            重新测试
+            Retest Connection
           </button>
         </div>
       </div>
 
       {/* Upload Form */}
       <form onSubmit={handleUpload} className="mb-8 p-6 bg-gray-50 rounded-lg">
-        <h3 className="text-xl font-semibold mb-4 text-gray-800">上传文件</h3>
+        <h3 className="text-xl font-semibold mb-4 text-gray-800">Upload File</h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              选择要上传的文件
+              Select file to upload
             </label>
             <input
               type="file"
@@ -249,7 +249,7 @@ export default function UploadComponent() {
             />
             {file && (
               <p className="mt-2 text-sm text-gray-600">
-                选中: <span className="font-semibold">{file.name}</span> (
+                Selected: <span className="font-semibold">{file.name}</span> (
                 {(file.size / 1024 / 1024).toFixed(2)} MB)
               </p>
             )}
@@ -261,7 +261,7 @@ export default function UploadComponent() {
             className="w-full px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 
                        disabled:bg-gray-400 disabled:cursor-not-allowed transition font-semibold"
           >
-            {loading ? '⏳ 上传中...' : '📤 上传文件'}
+            {loading ? '⏳ Uploading...' : '📤 Upload File'}
           </button>
         </div>
       </form>
@@ -283,20 +283,20 @@ export default function UploadComponent() {
       <div className="border-t pt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-900">
-            📋 已上传的文件 ({uploadedFiles.length})
+            📋 Uploaded Files ({uploadedFiles.length})
           </h3>
           <button
             onClick={loadUploadedFiles}
             disabled={loadingFiles}
             className="px-3 py-1 text-sm bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition disabled:opacity-50"
           >
-            {loadingFiles ? '刷新中...' : '刷新列表'}
+            {loadingFiles ? 'Refreshing...' : 'Refresh List'}
           </button>
         </div>
 
         {uploadedFiles.length === 0 ? (
           <div className="p-8 bg-gray-50 rounded-lg text-center">
-            <p className="text-gray-600">还没有上传任何文件</p>
+            <p className="text-gray-600">No files uploaded yet</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -313,14 +313,14 @@ export default function UploadComponent() {
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">
                       📄 {file.fileName}
-                      {file.isDeleted && ' [已删除]'}
+                      {file.isDeleted && ' [Deleted]'}
                     </p>
                     <div className="grid grid-cols-2 gap-2 mt-2 text-xs text-gray-600">
-                      <p>文件类型: {file.fileType || '未知'}</p>
-                      <p>文件大小: {file.size ? `${(file.size / 1024).toFixed(2)} KB` : '未知'}</p>
-                      <p>上传时间: {file.createdAt ? new Date(file.createdAt).toLocaleString('zh-CN') : '未知'}</p>
+                      <p>File Type: {file.fileType || 'Unknown'}</p>
+                      <p>File Size: {file.size ? `${(file.size / 1024).toFixed(2)} KB` : 'Unknown'}</p>
+                      <p>Uploaded: {file.createdAt ? new Date(file.createdAt).toLocaleString('en-US') : 'Unknown'}</p>
                       {file.deletedAt && (
-                        <p className="text-red-600">删除时间: {new Date(file.deletedAt).toLocaleString('zh-CN')}</p>
+                        <p className="text-red-600">Deleted: {new Date(file.deletedAt).toLocaleString('en-US')}</p>
                       )}
                     </div>
                   </div>
@@ -333,13 +333,13 @@ export default function UploadComponent() {
                           rel="noopener noreferrer"
                           className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition"
                         >
-                          查看
+                          View
                         </a>
                         <button
                           onClick={() => handleDelete(file.path)}
                           className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition"
                         >
-                          删除
+                          Delete
                         </button>
                       </>
                     )}
@@ -354,15 +354,15 @@ export default function UploadComponent() {
                       disabled={file.summaryLoading}
                       className="w-full px-3 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
                     >
-                      {file.summaryLoading ? '⏳ 生成摘要中...' : file.summary ? '🔄 重新生成摘要' : '✨ 生成 AI 摘要'}
+                      {file.summaryLoading ? '⏳ Generating summary...' : file.summary ? '🔄 Regenerate summary' : '✨ Generate AI Summary'}
                     </button>
 
                     {file.summary && (
                       <div className="mt-3 p-3 bg-white rounded border border-purple-200">
                         <p className="text-xs font-semibold text-purple-600 mb-2">
-                          📝 AI 摘要
+                          📝 AI Summary
                           {file.summaryModel && ` (${file.summaryModel})`}
-                          {file.summaryGeneratedAt && ` - ${new Date(file.summaryGeneratedAt).toLocaleString('zh-CN')}`}
+                          {file.summaryGeneratedAt && ` - ${new Date(file.summaryGeneratedAt).toLocaleString('en-US')}`}
                         </p>
                         <p className="text-sm text-gray-700 leading-relaxed italic">{file.summary}</p>
                       </div>
