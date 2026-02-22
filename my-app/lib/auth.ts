@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect, createContext, useContext } from 'react'
 
 export interface User {
