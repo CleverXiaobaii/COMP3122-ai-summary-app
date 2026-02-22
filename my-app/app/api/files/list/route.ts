@@ -54,9 +54,9 @@ export async function GET() {
         fileName: file.name,
         path: file.name,
         publicUrl,
-        fileType: dbInfo?.file_type || file.mimetype || 'unknown',
+        fileType: dbInfo?.file_type || 'unknown',
         size: dbInfo?.size || file.metadata?.size,
-        uploadedAt: new Date(file.created_at).toLocaleString('zh-CN'),
+        uploadedAt: new Date(file.created_at).toLocaleString('en-US'),
         createdAt: dbInfo?.created_at || file.created_at,
         isDeleted: dbInfo?.is_deleted || false,
         deletedAt: dbInfo?.deleted_at || null,
@@ -81,3 +81,4 @@ export async function GET() {
     )
   }
 }
+
