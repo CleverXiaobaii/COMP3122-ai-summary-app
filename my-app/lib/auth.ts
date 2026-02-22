@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, createContext, useContext } from 'react'
+import React, { useState, useEffect, createContext, useContext } from 'react'
 
 export interface User {
   id: string | null
@@ -103,11 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user
   }
 
-  return (
-    <AuthContext.Provider value={value as any}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return React.createElement(AuthContext.Provider, { value }, children)
 }
 
 // Helper function to get current user from cookies (for server components)
