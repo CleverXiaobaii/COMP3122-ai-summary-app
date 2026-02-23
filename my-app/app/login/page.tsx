@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
+import type { User } from '@/lib/auth'
 
 type LoginMode = 'user' | 'guest' | 'admin'
 
@@ -25,7 +26,7 @@ export default function LoginPage() {
     try {
       if (mode === 'guest') {
         // Guest login - no credentials needed
-        const guestUser = {
+        const guestUser: User = {
           id: 'a14ef943-e5d3-4a17-b4cb-293181ec1d7e',
           username: 'guest',
           email: 'guest@example.com',
@@ -44,7 +45,7 @@ export default function LoginPage() {
 
       // Mock authentication - in real app, this would call an API
       if (mode === 'admin' && email === 'admin@example.com' && password === 'admin123') {
-        const adminUser = {
+        const adminUser: User = {
           id: 'admin-id',
           username: 'admin',
           email: 'admin@example.com',

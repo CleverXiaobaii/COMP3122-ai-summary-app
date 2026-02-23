@@ -33,12 +33,6 @@ export default function UploadComponent() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
 
-    // Test connection on mount
-  useEffect(() => {
-    testConnection()
-    loadUploadedFiles()
-  }, [loadUploadedFiles, user])
-
   const testConnection = async () => {
     try {
       setConnectionStatus('🔄 Testing connection...')
@@ -90,6 +84,12 @@ export default function UploadComponent() {
       setLoadingFiles(false)
     }
   }, [user])
+
+  // Test connection on mount
+  useEffect(() => {
+    testConnection()
+    loadUploadedFiles()
+  }, [loadUploadedFiles, user])
 
   const generateSummary = async (file: UploadedFile) => {
     // Update by path to avoid index mismatch if list changed
