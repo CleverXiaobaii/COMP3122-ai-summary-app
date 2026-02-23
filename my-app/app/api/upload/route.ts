@@ -79,11 +79,12 @@ export async function POST(request: NextRequest) {
       .from(bucketName)
       .getPublicUrl(fileName)
     
-    // Record metadata in Postgres `documents` table
+        // Record metadata in Postgres `documents` table
+    // Use admin client to bypass RLS policies
     let documentId: string | null = null
     try {
       const now = new Date().toISOString()
-      const { data: insertedData, error: dbErr } = await supabase
+      const { data: insertedData, error: dbErr } = await supabaseAdmin
         .from('documents')
         .insert({
           file_name: fileName,

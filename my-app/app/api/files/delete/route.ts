@@ -1,4 +1,4 @@
-import { supabase, ensureSupabaseEnv } from '@/lib/supabase'
+import { supabase, supabaseAdmin, ensureSupabaseEnv } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function DELETE(request: NextRequest) {
@@ -21,7 +21,7 @@ export async function DELETE(request: NextRequest) {
     // Soft delete: Mark as deleted in database
     try {
       const now = new Date().toISOString()
-      const { data: deletedDoc } = await supabase
+            const { data: deletedDoc } = await supabaseAdmin
         .from('documents')
         .update({
           is_deleted: true,

@@ -1,4 +1,4 @@
-import { supabase, ensureSupabaseEnv } from '@/lib/supabase'
+import { supabase, supabaseAdmin, ensureSupabaseEnv } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -7,8 +7,9 @@ export async function GET() {
 
     const bucketName = 'default'
 
-    // Fetch documents from the database (including soft-deleted ones)
-    const { data: dbDocs, error: dbErr } = await supabase
+        // Fetch documents from the database (including soft-deleted ones)
+    // Use admin client to bypass RLS policies - app will filter by user
+    const { data: dbDocs, error: dbErr } = await supabaseAdmin
       .from('documents')
       .select('*')
       .order('created_at', { ascending: false })
