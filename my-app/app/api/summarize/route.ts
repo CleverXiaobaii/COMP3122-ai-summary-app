@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 
 function localExtractiveSummary(text: string, maxSentences = 2) {
   if (!text) return 'No content to summarize.'
@@ -121,9 +121,9 @@ export async function POST(request: NextRequest) {
           }
 
           if (summary && summary.trim()) {
-            // Attempt to update Postgres record with the generated summary (best-effort)
+                        // Attempt to update Postgres record with the generated summary (best-effort)
             try {
-              await supabase.from('documents').update({
+              await supabaseAdmin.from('documents').update({
                 summary: summary.trim(),
                 summary_source: 'deepseek',
                 summary_model: 'deepseek-chat',
@@ -143,10 +143,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fallback: local extractive summary
+        // Fallback: local extractive summary
     const fallback = localExtractiveSummary(documentContent, 2)
     try {
-      await supabase.from('documents').update({
+      await supabaseAdmin.from('documents').update({
         summary: fallback,
         summary_source: 'local',
         summary_model: 'local-extractive',

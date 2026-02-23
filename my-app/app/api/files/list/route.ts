@@ -1,4 +1,4 @@
-import { supabase, ensureSupabaseEnv } from '@/lib/supabase'
+import { supabase, supabaseAdmin, ensureSupabaseEnv } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -7,8 +7,9 @@ export async function GET() {
 
     const bucketName = 'default'
 
-    // Fetch documents from the database (including soft-deleted ones)
-    const { data: dbDocs, error: dbErr } = await supabase
+        // Fetch documents from the database (including soft-deleted ones)
+    // Use admin client to bypass RLS policies - app will filter by user
+    const { data: dbDocs, error: dbErr } = await supabaseAdmin
       .from('documents')
       .select('*')
       .order('created_at', { ascending: false })
@@ -49,21 +50,23 @@ export async function GET() {
       // Get database info for this file
       const dbInfo = dbDocsByPath[file.name]
 
-      return {
+            return {
         id: dbInfo?.id,
         fileName: file.name,
         path: file.name,
         publicUrl,
-        fileType: dbInfo?.file_type || file.mimetype || 'unknown',
+        fileType: dbInfo?.file_type || 'unknown',
         size: dbInfo?.size || file.metadata?.size,
-        uploadedAt: new Date(file.created_at).toLocaleString('zh-CN'),
+        uploadedAt: new Date(file.created_at).toLocaleString('en-US'),
         createdAt: dbInfo?.created_at || file.created_at,
         isDeleted: dbInfo?.is_deleted || false,
         deletedAt: dbInfo?.deleted_at || null,
         summary: dbInfo?.summary || null,
         summarySource: dbInfo?.summary_source || null,
         summaryModel: dbInfo?.summary_model || null,
-        summaryGeneratedAt: dbInfo?.summary_generated_at || null
+        summaryGeneratedAt: dbInfo?.summary_generated_at || null,
+        userId: dbInfo?.user_id || null,
+        bucketName: dbInfo?.bucket_name || 'default'
       }
     })
 
@@ -81,3 +84,4 @@ export async function GET() {
     )
   }
 }
+
