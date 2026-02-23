@@ -146,32 +146,36 @@ WHERE d.id = invalid.id;
 SELECT '=== TEST DATA ===' as table_info;
 
 -- Insert a test document with NULL user_id (should work)
-INSERT INTO public.documents (
-    file_name,
-    path,
-    public_url,
-    file_type,
-    size,
-    uploaded_at,
-    created_at,
-    is_deleted,
-    user_id,
-    bucket_name
-) VALUES (
-    'test-null-user.txt',
-    'test-null-user.txt',
-    'https://example.com/test',
-    'text/plain',
-    0,
-    NOW(),
-    NOW(),
-    false,
-    NULL,  -- NULL user_id
-    'default'
-) ON CONFLICT (path) DO NOTHING
-RETURNING id, file_name, user_id;
+-- Create a unique path to avoid conflicts
+WITH test_insert AS (
+    INSERT INTO public.documents (
+        file_name,
+        path,
+        public_url,
+        file_type,
+        size,
+        uploaded_at,
+        created_at,
+        is_deleted,
+        user_id,
+        bucket_name
+    ) VALUES (
+        'test-null-user-' || floor(random() * 1000000)::text,
+        'test-null-user-' || floor(random() * 1000000)::text,
+        'https://example.com/test',
+        'text/plain',
+        0,
+        NOW(),
+        NOW(),
+        false,
+        NULL,  -- NULL user_id
+        'default'
+    )
+    RETURNING id, file_name, user_id
+)
+SELECT * FROM test_insert;
 
 -- Clean up test data
-DELETE FROM public.documents WHERE file_name = 'test-null-user.txt';
+DELETE FROM public.documents WHERE file_name LIKE 'test-null-user-%';
 
 SELECT '=== FOREIGN KEY FIX COMPLETE ===' as table_info;
