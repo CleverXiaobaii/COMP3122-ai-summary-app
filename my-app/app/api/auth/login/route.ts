@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
@@ -82,13 +82,23 @@ export async function POST(request: NextRequest) {
       // Create user bucket in storage
       const bucketName = `user-${userId}`
       try {
-        await supabase.storage.createBucket(bucketName, {
+        console.log(`Creating user bucket: ${bucketName} for user: ${userId}`)
+        const { error: bucketError } = await supabaseAdmin.storage.createBucket(bucketName, {
           public: false,
           allowedMimeTypes: ['image/*', 'application/pdf', 'text/*'],
           fileSizeLimit: 10 * 1024 * 1024 // 10MB
         })
+        
+        if (bucketError) {
+          console.error(`Failed to create user bucket ${bucketName}:`, bucketError)
+          // Don't fail registration if bucket creation fails
+          console.warn('User registered but bucket creation failed. User will need to use default bucket.')
+        } else {
+          console.log(`User bucket ${bucketName} created successfully`)
+        }
       } catch (bucketError) {
-        console.warn('Failed to create user bucket (might already exist):', bucketError)
+        console.error('Unexpected error creating user bucket:', bucketError)
+        // Don't fail registration if bucket creation fails
       }
 
       // Create JWT token (simplified - in production use proper JWT)
