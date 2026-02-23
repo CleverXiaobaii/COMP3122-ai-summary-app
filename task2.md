@@ -71,4 +71,3 @@ Implement at least one additional features that you think is useful that can bet
 > <img width="1232" height="662" alt="sec9-1" src="https://github.com/user-attachments/assets/511f4875-80f7-4c29-a1f4-9506f8b7aa66" />
 > use Guest mode to skip the login part. User and Admin mode can also be tried.
 > <img width="1274" height="698" alt="sec9-2" src="https://github.com/user-attachments/assets/52f641a1-5a56-4e69-8205-b7c0b6222c23" />
-> IMPORTANT: refresh the page once after click the continue button.
