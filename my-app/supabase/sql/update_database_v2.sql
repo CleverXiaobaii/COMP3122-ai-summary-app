@@ -74,13 +74,28 @@ alter table public.logs enable row level security;
 alter table public.documents enable row level security;
 
 -- 5. Create RLS policies for users table
--- Users can read their own profile
-create policy "Users can view their own profile" on public.users
-for select using (auth.uid() = id or role = 'admin');
+-- Allow anyone to insert new users (registration)
+create policy "Allow user registration" on public.users
+for insert with check (true);
 
--- Only admins can insert/update/delete users (except self-registration handled by app)
-create policy "Only admins can manage users" on public.users
-for all using (role = 'admin');
+-- Allow anyone to select users (needed for login and duplicate checking)
+create policy "Allow user lookup" on public.users
+for select using (true);
+
+-- Allow users to update their own profile (except role changes)
+create policy "Users can update own profile" on public.users
+for update using (
+  auth.uid() = id 
+  and (
+    -- Users can't change their own role
+    (old.role = 'user' and new.role = 'user') or
+    (old.role = 'guest' and new.role = 'guest')
+  )
+);
+
+-- Only admins can delete users
+create policy "Only admins can delete users" on public.users
+for delete using (role = 'admin');
 
 -- 6. Create RLS policies for logs table
 -- Users can view their own logs

@@ -31,11 +31,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if user already exists
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: checkError } = await supabase
         .from('users')
         .select('*')
         .or(`email.eq.${email},username.eq.${username}`)
         .single()
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing user:', checkError)
+      }
 
       if (existingUser) {
         return NextResponse.json(
@@ -65,7 +69,12 @@ export async function POST(request: NextRequest) {
       if (insertError) {
         console.error('Error creating user:', insertError)
         return NextResponse.json(
-          { error: 'Failed to create user' },
+          { 
+            error: 'Failed to create user', 
+            details: insertError.message,
+            code: insertError.code,
+            hint: insertError.hint
+          },
           { status: 500 }
         )
       }
