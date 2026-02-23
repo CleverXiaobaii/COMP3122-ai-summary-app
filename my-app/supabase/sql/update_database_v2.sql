@@ -82,16 +82,10 @@ for insert with check (true);
 create policy "Allow user lookup" on public.users
 for select using (true);
 
--- Allow users to update their own profile (except role changes)
+-- Allow users to update their own profile
+-- Note: Role changes should be prevented at application level or via trigger
 create policy "Users can update own profile" on public.users
-for update using (
-  auth.uid() = id 
-  and (
-    -- Users can't change their own role
-    (old.role = 'user' and new.role = 'user') or
-    (old.role = 'guest' and new.role = 'guest')
-  )
-);
+for update using (auth.uid() = id);
 
 -- Only admins can delete users
 create policy "Only admins can delete users" on public.users
