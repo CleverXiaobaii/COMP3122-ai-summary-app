@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useAuth } from '@/lib/auth'
 
 type LoginMode = 'user' | 'guest' | 'admin'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login } = useAuth()
   const [mode, setMode] = useState<LoginMode>('user')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,14 +32,8 @@ export default function LoginPage() {
           role: 'guest',
           displayName: 'Guest User'
         }
-        // Set cookies
-        document.cookie = `user=${encodeURIComponent(JSON.stringify(guestUser))}; path=/; max-age=${24 * 60 * 60}`
-        document.cookie = 'isLoggedIn=true; path=/; max-age=${24 * 60 * 60}'
-        // Force a refresh to ensure auth state is updated
-        router.refresh()
-        setTimeout(() => {
-          router.push('/')
-        }, 100)
+        login(guestUser)
+        router.replace('/')
         return
       }
 
@@ -56,14 +51,8 @@ export default function LoginPage() {
           role: 'admin',
           displayName: 'Administrator'
         }
-        // Set cookies
-        document.cookie = `user=${encodeURIComponent(JSON.stringify(adminUser))}; path=/; max-age=${24 * 60 * 60}`
-        document.cookie = 'isLoggedIn=true; path=/; max-age=${24 * 60 * 60}'
-        // Force a refresh to ensure auth state is updated
-        router.refresh()
-        setTimeout(() => {
-          router.push('/')
-        }, 100)
+        login(adminUser)
+        router.replace('/')
       } else if (mode === 'user') {
         // User login/registration
         const response = await fetch('/api/auth/login', {
@@ -80,10 +69,7 @@ export default function LoginPage() {
         const data = await response.json()
 
         if (response.ok) {
-          // Set cookies
-          document.cookie = `user=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=${24 * 60 * 60}`
-          document.cookie = `token=${data.token}; path=/; max-age=${24 * 60 * 60}`
-          document.cookie = 'isLoggedIn=true; path=/; max-age=${24 * 60 * 60}'
+          login(data.user, data.token)
           
           // Log the login action
           await fetch('/api/auth/log', {
@@ -96,11 +82,7 @@ export default function LoginPage() {
             })
           })
           
-          // Force a refresh to ensure auth state is updated
-          router.refresh()
-          setTimeout(() => {
-            router.push('/')
-          }, 100)
+          router.replace('/')
         } else {
           throw new Error(data.error || 'Login failed')
         }

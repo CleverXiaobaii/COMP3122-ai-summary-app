@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth'
 
 interface UploadedFile {
@@ -37,7 +37,7 @@ export default function UploadComponent() {
   useEffect(() => {
     testConnection()
     loadUploadedFiles()
-  }, [user])
+  }, [loadUploadedFiles, user])
 
   const testConnection = async () => {
     try {
@@ -59,7 +59,7 @@ export default function UploadComponent() {
     }
   }
 
-        const loadUploadedFiles = async () => {
+  const loadUploadedFiles = useCallback(async () => {
     if (!user) return
     
     setLoadingFiles(true)
@@ -74,8 +74,11 @@ export default function UploadComponent() {
           // Guests can only see files belonging to the guest user
           files = files.filter((file: UploadedFile) => file.userId === user.id)
         } else if (user.role === 'user') {
-          // Regular users can only see their own files
-          files = files.filter((file: UploadedFile) => file.userId === user.id)
+                  // Regular users can see their own files or files from their user bucket
+                  const userBucket = user.id ? `user-${user.id}` : ''
+                  files = files.filter((file: UploadedFile) =>
+                    file.userId === user.id || (!!userBucket && file.bucketName === userBucket)
+                  )
         }
         // Admins can see all files (no filter)
         
@@ -86,9 +89,9 @@ export default function UploadComponent() {
     } finally {
       setLoadingFiles(false)
     }
-  }
+  }, [user])
 
-  const generateSummary = async (file: UploadedFile, index: number) => {
+  const generateSummary = async (file: UploadedFile) => {
     // Update by path to avoid index mismatch if list changed
     setUploadedFiles(prev => {
       const next = prev.map(p => ({ ...p }))
@@ -336,7 +339,7 @@ export default function UploadComponent() {
           </div>
         ) : (
           <div className="space-y-3">
-            {uploadedFiles.map((file, idx) => (
+            {uploadedFiles.map((file) => (
               <div
                 key={file.path}
                 className={`p-4 bg-gray-50 rounded-lg border transition ${
@@ -389,7 +392,7 @@ export default function UploadComponent() {
                 {!file.isDeleted && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <button
-                      onClick={() => generateSummary(file, idx)}
+                      onClick={() => generateSummary(file)}
                       disabled={file.summaryLoading}
                       className="w-full px-3 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
                     >
