@@ -34,7 +34,11 @@ export default function LoginPage() {
         // Set cookies
         document.cookie = `user=${encodeURIComponent(JSON.stringify(guestUser))}; path=/; max-age=${24 * 60 * 60}`
         document.cookie = 'isLoggedIn=true; path=/; max-age=${24 * 60 * 60}'
-        router.push('/')
+        // Force a refresh to ensure auth state is updated
+        router.refresh()
+        setTimeout(() => {
+          router.push('/')
+        }, 100)
         return
       }
 
@@ -55,7 +59,11 @@ export default function LoginPage() {
         // Set cookies
         document.cookie = `user=${encodeURIComponent(JSON.stringify(adminUser))}; path=/; max-age=${24 * 60 * 60}`
         document.cookie = 'isLoggedIn=true; path=/; max-age=${24 * 60 * 60}'
-        router.push('/admin') // TODO: Create admin page
+        // Force a refresh to ensure auth state is updated
+        router.refresh()
+        setTimeout(() => {
+          router.push('/')
+        }, 100)
       } else if (mode === 'user') {
         // User login/registration
         const response = await fetch('/api/auth/login', {
@@ -88,7 +96,11 @@ export default function LoginPage() {
             })
           })
           
-          router.push('/')
+          // Force a refresh to ensure auth state is updated
+          router.refresh()
+          setTimeout(() => {
+            router.push('/')
+          }, 100)
         } else {
           throw new Error(data.error || 'Login failed')
         }
