@@ -115,9 +115,24 @@ export async function GET(request: NextRequest) {
       }
 
       for (const file of files || []) {
-        const { data: { publicUrl } } = supabaseAdmin.storage
-          .from(bucketName)
-          .getPublicUrl(file.name)
+        let fileUrl = ''
+        if (bucketName === 'default') {
+          const { data: { publicUrl } } = supabaseAdmin.storage
+            .from(bucketName)
+            .getPublicUrl(file.name)
+          fileUrl = publicUrl
+        } else {
+          const { data: signedData, error: signedErr } = await supabaseAdmin.storage
+            .from(bucketName)
+            .createSignedUrl(file.name, 24 * 60 * 60)
+
+          if (signedErr) {
+            console.warn(`Failed to create signed URL for ${bucketName}/${file.name}:`, signedErr)
+            continue
+          }
+
+          fileUrl = signedData?.signedUrl || ''
+        }
 
         const dbInfo = dbDocsByPath[`${bucketName}/${file.name}`]
 
@@ -125,7 +140,7 @@ export async function GET(request: NextRequest) {
           id: dbInfo?.id,
           fileName: file.name,
           path: file.name,
-          publicUrl,
+          publicUrl: fileUrl,
           fileType: dbInfo?.file_type || 'unknown',
           size: dbInfo?.size || file.metadata?.size,
           uploadedAt: new Date(file.created_at).toLocaleString('en-US'),

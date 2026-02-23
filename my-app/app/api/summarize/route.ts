@@ -36,7 +36,27 @@ function localExtractiveSummary(text: string, maxSentences = 2) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { fileUrl, fileName, fileType, content } = await request.json()
+    const { fileUrl, fileName, fileType, content, bucketName, path } = await request.json()
+
+    let effectiveFileUrl: string | null = fileUrl || null
+    if (!effectiveFileUrl && bucketName && path) {
+      if (bucketName === 'default') {
+        const { data: { publicUrl } } = supabaseAdmin.storage
+          .from(bucketName)
+          .getPublicUrl(path)
+        effectiveFileUrl = publicUrl
+      } else {
+        const { data: signedData, error: signedErr } = await supabaseAdmin.storage
+          .from(bucketName)
+          .createSignedUrl(path, 10 * 60)
+
+        if (!signedErr) {
+          effectiveFileUrl = signedData?.signedUrl || null
+        } else {
+          console.warn('[Summarize] Failed to create signed URL:', signedErr)
+        }
+      }
+    }
 
     // prepare document content (in production, fetch and extract file text)
     const documentContent =
@@ -45,11 +65,11 @@ export async function POST(request: NextRequest) {
 
     // If a fileUrl was provided but no raw text `content`, try fetching the file (with timeout)
     let fetchedContent: string | null = null
-    if (fileUrl && !content) {
+    if (effectiveFileUrl && !content) {
       try {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 10000)
-        const resp = await fetch(fileUrl, { signal: controller.signal })
+        const resp = await fetch(effectiveFileUrl, { signal: controller.signal })
         clearTimeout(timeout)
         if (resp.ok) {
           const ct = (resp.headers.get('content-type') || '').toLowerCase()

@@ -89,10 +89,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get public URL
-    const { data: { publicUrl } } = supabaseAdmin.storage
-      .from(bucketName)
-      .getPublicUrl(fileName)
+    // Get file URL (public for default bucket, signed for private user buckets)
+    let publicUrl = ''
+    if (bucketName === 'default') {
+      const { data: { publicUrl: url } } = supabaseAdmin.storage
+        .from(bucketName)
+        .getPublicUrl(fileName)
+      publicUrl = url
+    } else {
+      const { data: signedData, error: signedErr } = await supabaseAdmin.storage
+        .from(bucketName)
+        .createSignedUrl(fileName, 24 * 60 * 60)
+
+      if (signedErr) {
+        console.warn(`Failed to create signed URL for uploaded file ${bucketName}/${fileName}:`, signedErr)
+      }
+
+      publicUrl = signedData?.signedUrl || ''
+    }
     
                 // Record metadata in Postgres `documents` table
     // Use admin client to bypass RLS policies

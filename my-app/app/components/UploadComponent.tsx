@@ -107,7 +107,9 @@ export default function UploadComponent() {
         body: JSON.stringify({
           fileUrl: file.publicUrl,
           fileName: file.fileName,
-          fileType: file.fileName.split('.').pop()
+          fileType: file.fileName.split('.').pop(),
+          bucketName: file.bucketName,
+          path: file.path
         })
       })
 

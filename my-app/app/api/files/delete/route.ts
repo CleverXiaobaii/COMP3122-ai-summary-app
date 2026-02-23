@@ -49,7 +49,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Also delete file from storage (hard delete)
-    const { error } = await supabase.storage
+    const { error } = await supabaseAdmin.storage
       .from(bucketName)
       .remove([path])
 
