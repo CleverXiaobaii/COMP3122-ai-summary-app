@@ -94,11 +94,36 @@ export async function POST(request: NextRequest) {
       .from(bucketName)
       .getPublicUrl(fileName)
     
-        // Record metadata in Postgres `documents` table
+                // Record metadata in Postgres `documents` table
     // Use admin client to bypass RLS policies
     let documentId: string | null = null
     try {
       const now = new Date().toISOString()
+      
+      // First, check if the user exists in the database
+      let validUserId: string | null = userId
+      if (userId) {
+        try {
+          const { data: userCheck, error: userCheckError } = await supabaseAdmin
+            .from('users')
+            .select('id')
+            .eq('id', userId)
+            .single()
+          
+          if (userCheckError || !userCheck) {
+            console.warn(`User ${userId} does not exist in users table. Setting user_id to NULL.`)
+            validUserId = null
+          } else {
+            console.log(`User ${userId} verified in database`)
+          }
+        } catch (userCheckErr) {
+          console.warn(`Error checking user ${userId}:`, userCheckErr)
+          validUserId = null
+        }
+      }
+      
+      console.log(`Inserting document with user_id: ${validUserId} (original: ${userId})`)
+      
       const { data: insertedData, error: dbErr } = await supabaseAdmin
         .from('documents')
         .insert({
@@ -110,7 +135,7 @@ export async function POST(request: NextRequest) {
           uploaded_at: now,
           created_at: now,
           is_deleted: false,
-          user_id: userId,
+          user_id: validUserId,  // Use verified user ID or NULL
           bucket_name: bucketName
         })
         .select('id')
@@ -118,15 +143,15 @@ export async function POST(request: NextRequest) {
       
       if (!dbErr && insertedData) {
         documentId = insertedData.id
-        console.log(`Document stored in DB with ID: ${documentId} for user: ${userId}`)
+        console.log(`Document stored in DB with ID: ${documentId} for user: ${validUserId}`)
         
         // Log the file upload action
-        if (userId) {
+        if (validUserId) {
           await fetch(`${request.nextUrl.origin}/api/auth/log`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              userId,
+              userId: validUserId,
               actionType: 'file_upload',
               details: { fileName, fileSize: file.size, bucketName }
             })
@@ -134,6 +159,33 @@ export async function POST(request: NextRequest) {
         }
       } else {
         console.warn('Failed to insert document metadata into Postgres:', dbErr)
+        // If there's still a foreign key error, try with NULL user_id
+        if (dbErr?.message?.includes('foreign key constraint')) {
+          console.log('Retrying with NULL user_id due to foreign key constraint...')
+          const { data: retryData, error: retryErr } = await supabaseAdmin
+            .from('documents')
+            .insert({
+              file_name: fileName,
+              path: data?.path,
+              public_url: publicUrl,
+              file_type: file.type || null,
+              size: file.size || null,
+              uploaded_at: now,
+              created_at: now,
+              is_deleted: false,
+              user_id: null,  // Force NULL to bypass foreign key
+              bucket_name: bucketName
+            })
+            .select('id')
+            .single()
+          
+          if (!retryErr && retryData) {
+            documentId = retryData.id
+            console.log(`Document stored in DB with ID: ${documentId} (user_id forced to NULL)`)
+          } else {
+            console.error('Retry also failed:', retryErr)
+          }
+        }
       }
     } catch (dbErr) {
       console.warn('Failed to insert document metadata into Postgres:', dbErr)

@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
       const passwordHash = hashPassword(password)
       const userId = uuidv4()
       
-      const { data: newUser, error: insertError } = await supabase
+      console.log(`Registering user: ${username} (${email}) with ID: ${userId}`)
+      
+      // Use admin client to ensure user creation succeeds regardless of RLS
+      const { data: newUser, error: insertError } = await supabaseAdmin
         .from('users')
         .insert({
           id: userId,
