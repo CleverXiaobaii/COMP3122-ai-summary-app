@@ -5,10 +5,17 @@ export async function POST(request: NextRequest) {
   try {
     ensureSupabaseEnv()
     
+    // Log environment variable status for debugging
+    console.log('Upload API - Environment check:')
+    console.log('- SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Not set')
+    console.log('- NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set')
+    
     const formData = await request.formData()
     const file = formData.get('file') as File
     let bucketName = (formData.get('bucket') as string) || 'default'
     const userId = formData.get('userId') as string || null
+    
+    console.log(`Upload request - User: ${userId}, Bucket: ${bucketName}, File: ${file?.name}`)
 
     if (!file) {
       return NextResponse.json(
@@ -19,9 +26,10 @@ export async function POST(request: NextRequest) {
 
             // For user buckets, ensure the bucket exists
     if (bucketName.startsWith('user-') && bucketName !== 'default') {
-      try {
+            try {
         // First check if bucket exists by trying to list files
-        const { data: listData, error: listError } = await supabase.storage
+        // Use admin client for bucket operations
+        const { data: listData, error: listError } = await supabaseAdmin.storage
           .from(bucketName)
           .list()
         
@@ -56,26 +64,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Upload file directly to the bucket
+        // Upload file directly to the bucket
     const fileName = `${Date.now()}-${file.name}`
-    const { data, error } = await supabase.storage
+    
+    // Use admin client for storage operations to ensure proper permissions
+    const { data, error } = await supabaseAdmin.storage
       .from(bucketName)
       .upload(fileName, file)
 
     if (error) {
+      console.error(`Storage upload failed for bucket ${bucketName}:`, error)
       return NextResponse.json(
         { 
           error: `Upload failed: ${error.message}`,
           bucket: bucketName,
           hint: 'Check Supabase > Storage > Policies for RLS configuration',
-          diagnostic: 'Visit /api/storage/diagnose for more details'
+          diagnostic: 'Visit /api/storage/diagnose for more details',
+          debug: {
+            bucketType: bucketName.startsWith('user-') ? 'user-bucket' : 'default-bucket',
+            hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+          }
         },
         { status: 500 }
       )
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabaseAdmin.storage
       .from(bucketName)
       .getPublicUrl(fileName)
     
