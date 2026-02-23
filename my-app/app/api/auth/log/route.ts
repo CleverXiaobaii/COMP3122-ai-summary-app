@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const clientIp = ipAddress || request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
     const clientUserAgent = userAgent || request.headers.get('user-agent') || 'unknown'
 
-    const { data: log, error } = await supabase
+    const { data: log, error } = await supabaseAdmin
       .from('logs')
       .insert({
         user_id: userId || null,
