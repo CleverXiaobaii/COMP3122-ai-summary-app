@@ -6,7 +6,7 @@ delete from public.users where username = 'guest' and id != 'a14ef943-e5d3-4a17-
 
 -- Insert or update guest user with correct fixed UUID
 insert into public.users (id, email, password_hash, username, display_name, role, is_active)
-values ('a14ef943-e5d3-4a17-b4cb-293181ec1d7e', 'guest@example.com', crypt('guest123', gen_salt('bf')), 'guest', 'Guest User', 'guest', true)
+values ('a14ef943-e5d3-4a17-b4cb-293181ec1d7e', 'guest@example.com', md5('guest123' || 'default-salt'), 'guest', 'Guest User', 'guest', true)
 on conflict (id) do update set 
   email = EXCLUDED.email,
   password_hash = EXCLUDED.password_hash,

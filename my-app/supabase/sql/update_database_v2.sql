@@ -21,13 +21,14 @@ create index if not exists idx_users_role on public.users (role);
 
 -- Insert default admin user (password: admin123)
 -- Note: In production, you should change this password!
+-- Using MD5 hash for simplicity during development
 insert into public.users (email, password_hash, username, display_name, role)
-values ('admin@example.com', crypt('admin123', gen_salt('bf')), 'admin', 'Administrator', 'admin')
+values ('admin@example.com', md5('admin123' || 'default-salt'), 'admin', 'Administrator', 'admin')
 on conflict (email) do nothing;
 
 -- Insert default guest user with fixed UUID
 insert into public.users (id, email, password_hash, username, display_name, role)
-values ('a14ef943-e5d3-4a17-b4cb-293181ec1d7e', 'guest@example.com', crypt('guest123', gen_salt('bf')), 'guest', 'Guest User', 'guest')
+values ('a14ef943-e5d3-4a17-b4cb-293181ec1d7e', 'guest@example.com', md5('guest123' || 'default-salt'), 'guest', 'Guest User', 'guest')
 on conflict (id) do update set 
   email = EXCLUDED.email,
   password_hash = EXCLUDED.password_hash,

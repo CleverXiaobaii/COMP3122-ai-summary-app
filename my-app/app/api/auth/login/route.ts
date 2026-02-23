@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 
-// Simple password hashing function (in production, use bcrypt)
+// Simple password hashing function (using MD5 for compatibility with SQL migration)
+// In production, use bcrypt or argon2
 function hashPassword(password: string): string {
-  return createHash('sha256').update(password + process.env.PASSWORD_SALT || 'default-salt').digest('hex')
+  // Match the SQL: md5(password || 'default-salt')
+  return createHash('md5').update(password + 'default-salt').digest('hex')
 }
 
 export async function POST(request: NextRequest) {
